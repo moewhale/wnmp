@@ -50,7 +50,7 @@ chmod +x wnmp.sh
 bash wnmp.sh
 ```
 
-请使用 **root 用户** 执行。`screen` 命令可选，用于防止掉线。  
+请使用 **root 用户** 执行。  
 脚本协议：**GPLv3**。
 
 ---
