@@ -1315,7 +1315,7 @@ ensure_user() {
 
 if ! grep -q '/usr/local/php/bin' /etc/profile; then
   cp /etc/profile /etc/profile.bak
-  sed -i '/^# 以下由脚本添加的全局变量$/,+1d' /etc/profile || true
+  sed -i '/^# The following global variables added by the script:$/,+1d' /etc/profile || true
   cat >> /etc/profile << 'EOF'
 export PATH="/usr/local/php/bin:/usr/local/mariadb/bin:$PATH"
 EOF
@@ -1695,9 +1695,9 @@ phpize && \
 --enable-openssl  --enable-mysqlnd --enable-swoole-curl --enable-cares --enable-iouring --enable-zstd && \
 make && make install
   
-  pecl_build_from_source redis || echo -e "${RED:-}\u3010警告\u3011redis Installation Failed${NC:-}" 
-  pecl_build_from_source inotify || echo -e "${RED}警告：inotify Installation Failed${NC}"
-  pecl_build_from_source apcu || echo -e "${RED}警告：apcu Installation Failed${NC}"
+  pecl_build_from_source redis || echo -e "${RED}Warning:redis Installation Failed${NC}" 
+  pecl_build_from_source inotify || echo -e "${RED}Warning:inotify Installation Failed${NC}"
+  pecl_build_from_source apcu || echo -e "${RED}Warning:apcu Installation Failed${NC}"
 else
   echo 'Do not install PHP'
 fi
@@ -2421,21 +2421,18 @@ EOF
   cd ..
   set +H
   /usr/local/mariadb/bin/mysql -uroot --protocol=SOCKET <<SQL
--- 设置 root@localhost 密码
+
 ALTER USER 'root'@'localhost'
   IDENTIFIED VIA unix_socket
   OR mysql_native_password USING PASSWORD('${MYSQL_PASS}');
 
--- 删除匿名用户
 DROP USER IF EXISTS ''@'localhost';
 DROP USER IF EXISTS ''@'%';
 
--- 禁止 root 远程登录
 DROP USER IF EXISTS 'root'@'%';
 DROP USER IF EXISTS 'root'@'127.0.0.1';
 DROP USER IF EXISTS 'root'@'::1';
 
--- 删除 test 数据库及其权限
 DROP DATABASE IF EXISTS test;
 
 FLUSH PRIVILEGES;
