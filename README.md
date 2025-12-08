@@ -1,6 +1,6 @@
 # 🌀 WNMP — One-Click Web Stack
 **WebDAV · Nginx · MariaDB · PHP · Kernel Optimization**
-
+[🇨🇳 中文版说明](./README.zh.md)
 ![License](https://img.shields.io/badge/License-GPLv3-blue.svg)
 ![Platform](https://img.shields.io/badge/Platform-Debian%2012%2F13%20%7C%20Ubuntu%2022--25-green.svg)
 ![Build](https://img.shields.io/badge/Installer-One%20Command-orange.svg)
