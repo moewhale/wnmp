@@ -78,7 +78,7 @@ bash wnmp.sh
 ```
 
 License: **GPLv3**  
-Run as **root**.
+Please execute commands using the root account on a completely clean system.
 
 ---
 
