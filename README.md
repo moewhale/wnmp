@@ -87,6 +87,23 @@ Run as **root**.
 ```
 
 ---
+Does it support one-click generation of SSH login keys?
+Yes. Run bash wnmp.sh sshkey
+
+=====================================================================
+
+⚠️ Important reminder: Before confirming you have saved the private key to your own computer
+
+⚠️ Do not disconnect the current SSH session, or you will be unable to log back into the server!
+
+=====================================================================
+
+Save the private key to your local computer. You can then load the key in an SSH client for password-less login.
+
+After configuring key-based login, the server will block all username/password logins.
+---
+
+---
 
 ## 📖 License
 
