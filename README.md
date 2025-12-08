@@ -8,7 +8,7 @@
 ![Build](https://img.shields.io/badge/Installer-One%20Command-orange.svg)
 
 > Lightweight · Stable · Reproducible  
-> A one-click shell installer for building a production-ready web stack with **WebDAV, Nginx, PHP, MariaDB (Mroonga engine)** and automatic kernel/network tuning.
+> A one-click shell On Windows11(WSL)+Linux(Debian,Ubuntu) installer for building a production-ready web stack with **Nginx, PHP, MariaDB (Mroonga engine),WebDAV** and automatic kernel/network tuning.
 
 ---
 
