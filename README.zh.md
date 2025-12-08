@@ -10,7 +10,11 @@
 
 ---
 
-# WNMP = WebDAV + Nginx + MariaDB + PHP
+# WNMP：
+
+# 1、Windows11(WSL)+Nginx+Mariadb+PHP
+
+# 2、(Linux)WebDav+Nginx+Mariadb+PHP
 
 ## 🚀 概述
 
