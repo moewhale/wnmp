@@ -1,5 +1,5 @@
 # 🌀 WNMP — One-Click Web Stack
-**WebDAV · Nginx · MariaDB · PHP · Kernel Optimization**
+**Windows11(WSL)+Linux(Debian,Ubuntu) · Nginx · MariaDB · PHP · WebDav · Kernel Optimization**
 ---
 [🇨🇳 中文版说明](./README.zh.md)
 ---
