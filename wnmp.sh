@@ -63,9 +63,10 @@ Usage:
   bash wnmp.sh tool          # Kernel/Network tuning only
   bash wnmp.sh restart       # Restart services
   bash wnmp.sh remove        # Uninstall
-  bash wnmp.sh renginx       # Uninstallphp
+  bash wnmp.sh renginx       # Uninstallnginx
   bash wnmp.sh rephp         # Uninstallphp
   bash wnmp.sh remariadb     # Uninstallmariadb
+  bash wnmp.sh wslinit       # Wsl open SSH Server
   bash wnmp.sh -h|--help     # Show help
 USAGE
 }
