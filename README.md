@@ -135,7 +135,7 @@ Press Win+R to open the Run dialog, type `cmd`. Press Shift+Ctrl+Enter to open t
 
 After successful installation, you will be prompted to configure a standard account and password. Once configured, simply type: exit to exit the subsystem.
 
-wsl -d debian -u root # Log into the Debian system as root
+`wsl -d debian -u root` # Log into the Debian system as root
 
 ```bash
 cd ~
@@ -157,9 +157,9 @@ Login address: 127.0.0.1 Port: 22
 
 Additional WSL commands: In the Windows cmd environment (not the subsystem shell console):
 
-```wsl -l -v``` # View list of installed systems
-```wsl --shutdown``` # Stop the subsystem
-```wsl --unregister debian``` # Unregister the subsystem
+`wsl -l -v` # View list of installed systems
+`wsl --shutdown` # Stop the subsystem
+`wsl --unregister debian` # Unregister the subsystem
 
 To enable LAN access to the subsystem, navigate to the C:\Users\[username] directory. Replace [username] with your actual Windows login name.
 
@@ -175,7 +175,7 @@ hostAddressLoopback=true
 ```
 Run the following command in an administrator PowerShell window to configure Hyper-V firewall settings for inbound connections:
 
-Set-NetFirewallHyperVVMSetting -Name ‘{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}’ -DefaultInboundAction Allow
+`Set-NetFirewallHyperVVMSetting -Name ‘{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}’ -DefaultInboundAction Allow`
 
 Restart your computer again. You can now log into the subsystem using the same LAN IP address as your local Windows system. Enter `ipconfig` in the cmd console to view your local LAN IP.
 
