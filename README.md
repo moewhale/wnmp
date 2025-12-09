@@ -120,6 +120,9 @@ Save the private key to your local computer. You can then load the key in an SSH
 
 After configuring key-based login, the server will block all username/password logins.
 ---
+
+---
+
 ## How to Install and Use WMMP on Windows?
 
 Ensure you are using Windows 11. First, install the WSL subsystem.
@@ -172,7 +175,7 @@ Run the following command in an administrator PowerShell window to configure Hyp
 Set-NetFirewallHyperVVMSetting -Name ‘{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}’ -DefaultInboundAction Allow
 
 Restart your computer again. You can now log into the subsystem using the same LAN IP address as your local Windows system. Enter `ipconfig` in the cmd console to view your local LAN IP.
----
+
 
 ## 📖 License
 
