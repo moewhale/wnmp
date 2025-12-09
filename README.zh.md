@@ -111,6 +111,57 @@ bash wnmp.sh
 ---
 
 
+## Win系统如何安装使用WMMP？
+
+确认你是win11系统。首先需要安装wsl子系统
+
+Win+R 组合键打开运行输入框，输入cmd # 键盘组合键shift+ctrl+enter 进入管理员模式控制台。
+
+输入:wsl -l -o # 查看是否能读取远程系统列表，如果能正常读取，表示wsl正常
+
+输入:wsl --install debian # (开始安装debian13子系统，第一次执行命令会要求重启电脑，或提示未开启CPU虚拟化支持等，请根据提示操作)
+
+正常安装后会要求配置一个普通账号+密码，配置成功后直接：exit 退出子系统
+
+wsl -d debian -u root # 以root账号身份登录debian系统
+
+apt install -y curl && curl -fL https://wnmp.org/zh/wnmp.sh -o wnmp.sh && chmod +x wnmp.sh && bash wnmp.sh wslinit
+
+在此电脑任务地址栏定位打开C:\Users\[username]\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup # 请用windows登录的真实账号名代替[username]
+
+新建一个wsl.vbs文件并写入内容：
+
+Set ws = CreateObject("Wscript.Shell")
+ws.run "wsl -d debian", 0
+初始化完成后，子系统已安装SSH服务端，根据提示重启电脑后，你可以像正常服务器VPS一样用SSH客户端登录你的wsl debian 子系统
+
+登录地址:127.0.0.1 端口:22
+
+更多wsl命令：在windows cmd环境下，非子系统shell控制台
+
+wsl -l -v # 查看已安装系统列表
+
+wsl --shutdown # 停止子系统
+
+wsl --unregister # 卸载子系统
+
+如需要局域网访问子系统，打开C:\Users\[username]目录 # 请用windows登录的真实账号名代替[username]
+
+新建一个.wslconfig文件并写入内容：
+
+[wsl2]
+networkingMode=Mirrored
+dnsTunneling=true
+firewall=true
+autoProxy=true
+[experimental]
+hostAddressLoopback=true
+在管理员权限 PowerShell 窗口中运行以下命令,以配置 Hyper-V 防火墙 设置以允许入站连接：
+
+Set-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -DefaultInboundAction Allow
+
+再次重启电脑。现在你可以登录与你本机win系统相同局域网IP地址登录子系统。请在cmd命令控制台输入ipconfig 查看你的本机局域网IP
+
 ---
 
 ## 📖 开源协议
