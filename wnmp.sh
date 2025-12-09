@@ -3,7 +3,7 @@
 # Copyright (C) 2025 wnmp.org
 # Website: https://wnmp.org
 # License: GNU General Public License v3.0 (GPLv3)
-# Version: 1.00
+# Version: 1.01
 
 set -euo pipefail
 
@@ -70,7 +70,96 @@ Usage:
 USAGE
 }
 
+wslinit(){
 
+  
+
+export DEBIAN_FRONTEND=noninteractive
+apt update
+apt -y full-upgrade
+
+echo "[4/7] Install common tools and openssh-server ..."
+apt install -y \
+  build-essential \
+  ca-certificates \
+  curl wget unzip git cmake pkg-config \
+  htop net-tools \
+  openssh-server
+
+install -d -m 0755 -o root -g root /run/sshd
+
+ssh-keygen -A
+
+update-ca-certificates || true
+
+echo "[5/7] Configure SSH: Allow root login + password login ..."
+
+SSHD_CFG="/etc/ssh/sshd_config"
+
+set_sshd_option() {
+  local key="$1"
+  local value="$2"
+  if grep -qE "^[#[:space:]]*${key}\b" "$SSHD_CFG"; then
+    sed -i "s/^[#[:space:]]*${key}.*/${key} ${value}/" "$SSHD_CFG"
+  else
+    echo "${key} ${value}" >>"$SSHD_CFG"
+  fi
+}
+
+set_sshd_option "PermitRootLogin" "yes"
+set_sshd_option "PasswordAuthentication" "yes"
+set_sshd_option "PermitEmptyPasswords" "no"
+set_sshd_option "PubkeyAuthentication" "yes"
+
+echo "[6/7] Restart the SSH service ..."
+
+if command -v service >/dev/null 2>&1; then
+  service sshd restart || true
+fi
+
+
+if command -v systemctl >/dev/null 2>&1; then
+  systemctl enable sshd >/dev/null 2>&1 || true
+  systemctl restart sshd >/dev/null 2>&1 || true
+fi
+
+echo "[7/7] Set the root password (please enter the new password twice as prompted) ..."
+passwd root
+
+echo "[7.1/7] Set the default user to root (write to /etc/wsl.conf) ..."
+
+cat >/etc/wsl.conf <<'EOF'
+[boot]
+systemd=true
+[user]
+default=root
+EOF
+mkdir -p /run/sshd && sudo chmod 755 /run/sshd
+ssh-keygen -A
+/usr/sbin/sshd -t &&  systemctl restart sshd && systemctl status sshd --no-pager
+
+mkdir -p /run/sshd && sudo chmod 755 /run/sshd
+ssh-keygen -A
+systemctl restart sshd
+echo
+echo "================= Complete ================="
+echo "[OK] System upgraded, common tools and openssh-server installed."
+echo "[OK] SSH root + password login enabled."
+echo
+echo "Quick tips:"
+echo "  1) In WSL2, if ssh isn't running, start it manually:"
+echo "       systemctl start sshd"
+echo
+echo "  2) To test connection locally (within WSL):"
+echo "       ssh root@127.0.0.1"
+echo
+echo "  3) For cloud servers, use:"
+echo "       ssh root@serverIP"
+echo
+echo "  5) Must be paired with a startup script. Restart the physical machine once for normal operation."
+echo "========================================"
+
+}
 
 is_lan() {
   local local_ip
@@ -272,6 +361,10 @@ webdav() {
 
 
 default() {
+if [[ "$IS_LAN" -eq 1 ]]; then
+  red "[env] This is an internal network environment; certificate requests will be skipped."
+  exit 0
+fi
   read -rp "[STEP1] Enter domain: " DOMAIN_LINE
   if [[ -z "$DOMAIN_LINE" ]]; then
     
@@ -383,7 +476,7 @@ http {
         server_name _;
 
         root  /home/wwwroot/default;
-        index index.html index.htm index.php;
+        index index.html index.php;
 
         if ($is_allowed_host = 0) { return 403; }
 
@@ -647,7 +740,7 @@ server{
     http2 on;
     server_name example;
     root  /home/wwwroot/default;
-    index index.html;
+    index index.html index.php;
     error_page 403 = @e403;
     location @e403 {
         root html;
@@ -688,7 +781,6 @@ server{
     }
     
     location / {
-        index index.html;
         try_files $uri $uri/ @lowphp;
     }
     location @lowphp {
@@ -1258,6 +1350,7 @@ for arg in "$@"; do
      renginx) renginx; exit 0 ;;
      rephp) rephp; exit 0 ;;
      remariadb) remariadb; exit 0 ;;
+     wslinit) wslinit; exit 0 ;;
      "") ;;
      *) echo "[setup] Unknown parameter: ${arg}"; usage; exit 1 ;;
    esac
@@ -2309,7 +2402,7 @@ http {
         listen 80 default_server reuseport;
         server_name _;
         root  /home/wwwroot/default;
-        index index.html  index.php;
+        index index.html index.php;
         error_page 403 = @e403;
         location @e403 {
             root html;
@@ -2470,7 +2563,7 @@ http {
         server_name _;
 
         root  /home/wwwroot/default;
-        index index.html index.htm index.php;
+        index index.html index.php;
 
         if ($is_allowed_host = 0) { return 403; }
 
