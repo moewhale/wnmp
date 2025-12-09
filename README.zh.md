@@ -117,13 +117,13 @@ bash wnmp.sh
 
 Win+R 组合键打开运行输入框，输入cmd # 键盘组合键shift+ctrl+enter 进入管理员模式控制台。
 
-输入:wsl -l -o # 查看是否能读取远程系统列表，如果能正常读取，表示wsl正常
+`wsl -l -o` # 查看是否能读取远程系统列表，如果能正常读取，表示wsl正常
 
-输入:wsl --install debian # (开始安装debian13子系统，第一次执行命令会要求重启电脑，或提示未开启CPU虚拟化支持等，请根据提示操作)
+`wsl --install debian` # (开始安装debian13子系统，第一次执行命令会要求重启电脑，或提示未开启CPU虚拟化支持等，请根据提示操作)
 
 正常安装后会要求配置一个普通账号+密码，配置成功后直接：exit 退出子系统
 
-wsl -d debian -u root # 以root账号身份登录debian系统
+`wsl -d debian -u root` # 以root账号身份登录debian系统
 ```bash
 cd ~
 apt update && apt install -y curl && curl -fL https://wnmp.org/zh/wnmp.sh -o wnmp.sh && chmod +x wnmp.sh && bash wnmp.sh wslinit
@@ -141,11 +141,11 @@ ws.run "wsl -d debian", 0
 
 更多wsl命令：在windows cmd环境下，非子系统shell控制台
 
-wsl -l -v # 查看已安装系统列表
+`wsl -l -v` # 查看已安装系统列表
 
-wsl --shutdown # 停止子系统
+`wsl --shutdown` # 停止子系统
 
-wsl --unregister # 卸载子系统
+`wsl --unregister debian` # 卸载子系统
 
 如需要局域网访问子系统，打开C:\Users\[username]目录 # 请用windows登录的真实账号名代替[username]
 
