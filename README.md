@@ -120,7 +120,58 @@ Save the private key to your local computer. You can then load the key in an SSH
 
 After configuring key-based login, the server will block all username/password logins.
 ---
+How to Install and Use WMMP on Windows?
 
+Ensure you are using Windows 11. First, install the WSL subsystem.
+
+Press Win+R to open the Run dialog, type `cmd`. Press Shift+Ctrl+Enter to open the Administrator Command Prompt.
+
+Type: `wsl -l -o` to check if remote system lists are accessible. If successful, WSL is functioning properly.
+
+Enter: wsl --install debian # (Begin installing the Debian 13 subsystem. The first command execution may require a system restart or prompt for missing CPU virtualization support. Follow the on-screen instructions.)
+
+After successful installation, you will be prompted to configure a standard account and password. Once configured, simply type: exit to exit the subsystem.
+
+wsl -d debian -u root # Log into the Debian system as root
+
+apt install -y curl && curl -fL https://wnmp.org/zh/wnmp.sh -o wnmp.sh && chmod +x wnmp.sh && bash wnmp.sh wslinit
+
+In the taskbar, navigate to and open:
+C:\Users\[username]\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup
+# Replace [username] with your actual Windows login username
+
+Create a new wsl.vbs file and add the following content:
+```bash
+Set ws = CreateObject(“Wscript.Shell”)
+ws.run “wsl -d debian”, 0
+```
+After initialization completes, the subsystem will have the SSH server installed. Restart your computer as prompted, then you can log into your WSL Debian subsystem using an SSH client just like a regular server VPS.
+
+Login address: 127.0.0.1 Port: 22
+
+Additional WSL commands: In the Windows cmd environment (not the subsystem shell console):
+
+```wsl -l -v``` # View list of installed systems
+```wsl --shutdown``` # Stop the subsystem
+```wsl --unregister``` # Unregister the subsystem
+
+To enable LAN access to the subsystem, navigate to the C:\Users\[username] directory. Replace [username] with your actual Windows login name.
+
+Create a new .wslconfig file and add the following content:
+```bash
+[wsl2]
+networkingMode=Mirrored
+dnsTunneling=true
+firewall=true
+autoProxy=true
+[experimental]
+hostAddressLoopback=true
+```
+Run the following command in an administrator PowerShell window to configure Hyper-V firewall settings for inbound connections:
+
+Set-NetFirewallHyperVVMSetting -Name ‘{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}’ -DefaultInboundAction Allow
+
+Restart your computer again. You can now log into the subsystem using the same LAN IP address as your local Windows system. Enter `ipconfig` in the cmd console to view your local LAN IP.
 ---
 
 ## 📖 License
