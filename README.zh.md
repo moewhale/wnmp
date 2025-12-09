@@ -161,7 +161,7 @@ hostAddressLoopback=true
 ```
 在管理员权限 PowerShell 窗口中运行以下命令,以配置 Hyper-V 防火墙 设置以允许入站连接：
 
-Set-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -DefaultInboundAction Allow
+`Set-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -DefaultInboundAction Allow`
 
 再次重启电脑。现在你可以登录与你本机win系统相同局域网IP地址登录子系统。请在cmd命令控制台输入ipconfig 查看你的本机局域网IP
 
