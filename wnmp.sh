@@ -3,7 +3,7 @@
 # Copyright (C) 2025 wnmp.org
 # Website: https://wnmp.org
 # License: GNU General Public License v3.0 (GPLv3)
-# Version: 1.05
+# Version: 1.06
 
 set -euo pipefail
 
@@ -45,6 +45,7 @@ blue()   { echo -e "\033[36m$*\033[0m"; }
 echo
 green  "============================================================"
 green  " [init] WNMP one-click installer started"
+green  " [init] https://wnmp.org"
 green  " [init] Logs saved to: ${LOGFILE}"
 green  " [init] Start time: $(date '+%F %T')"
 green  "============================================================"
@@ -184,19 +185,7 @@ is_lan() {
 is_lan
 
 
-if [[ "$IS_LAN" -eq 1 ]]; then
-red "[env] Detected a LAN environment, certificate issuance will be skipped."
-read -rp "Do you want to force certificate issuance? [y/N] " ans
-ans="${ans:-N}"
-if [[ "$ans" =~ [Yy]$ ]]; then
-  green "[env] Forced certificate issuance enabled."
-  IS_LAN=0
-else
-  red "[env] Certificate issuance remains skipped."
-fi
-else
-green "[env] Public network detected, certificate issuance is available."
-fi
+
 
 
 
@@ -374,6 +363,19 @@ webdav() {
 
 default() {
 if [[ "$IS_LAN" -eq 1 ]]; then
+red "[env] Detected a LAN environment, certificate issuance will be skipped."
+read -rp "Do you want to force certificate issuance? [y/N] " ans
+ans="${ans:-N}"
+if [[ "$ans" =~ [Yy]$ ]]; then
+  green "[env] Forced certificate issuance enabled."
+  IS_LAN=0
+else
+  red "[env] Certificate issuance remains skipped."
+fi
+else
+green "[env] Public network detected, certificate issuance is available."
+fi
+if [[ "$IS_LAN" -eq 1 ]]; then
   red "[env] This is an internal network environment; certificate requests will be skipped."
   exit 0
 fi
@@ -419,12 +421,12 @@ http {
     keepalive_timeout   10s;
     keepalive_requests  100000;
 
-    client_max_body_size 1G;
-    client_body_buffer_size 128k;
-
-    client_header_timeout 15s;
-    client_body_timeout   15s;
-    send_timeout          15s;
+    client_body_temp_path /usr/local/nginx/client_body_temp 1 2;
+    client_max_body_size 10g;
+    client_body_buffer_size 512k;
+    client_header_timeout 300s;
+    client_body_timeout   1800s;
+    send_timeout          1800s;
 
     set_real_ip_from 103.21.244.0/22;
     set_real_ip_from 103.22.200.0/22;
@@ -657,6 +659,19 @@ NGINX_CONF
 
 
 vhost() {
+if [[ "$IS_LAN" -eq 1 ]]; then
+red "[env] Detected a LAN environment, certificate issuance will be skipped."
+read -rp "Do you want to force certificate issuance? [y/N] " ans
+ans="${ans:-N}"
+if [[ "$ans" =~ [Yy]$ ]]; then
+  green "[env] Forced certificate issuance enabled."
+  IS_LAN=0
+else
+  red "[env] Certificate issuance remains skipped."
+fi
+else
+green "[env] Public network detected, certificate issuance is available."
+fi
   if ! (echo $BASH_VERSION >/dev/null 2>&1); then
     echo "[vhost][ERROR] Please run this script with bash."; return 1
   fi
@@ -1267,6 +1282,19 @@ KERNEL_TUNE_ONLY=0
 
 
 sshkey() {
+if [[ "$IS_LAN" -eq 1 ]]; then
+red "[env] Detected a LAN environment, certificate issuance will be skipped."
+read -rp "Do you want to force certificate issuance? [y/N] " ans
+ans="${ans:-N}"
+if [[ "$ans" =~ [Yy]$ ]]; then
+  green "[env] Forced certificate issuance enabled."
+  IS_LAN=0
+else
+  red "[env] Certificate issuance remains skipped."
+fi
+else
+green "[env] Public network detected, certificate issuance is available."
+fi
   set -euo pipefail
   if [[ "$IS_LAN" -eq 1 ]]; then
     echo "[env] Currently in an internal network environment; certificate application has been skipped."
@@ -1472,7 +1500,19 @@ for arg in "$@"; do
    esac
  done
 
-
+if [[ "$IS_LAN" -eq 1 ]]; then
+red "[env] Detected a LAN environment, certificate issuance will be skipped."
+read -rp "Do you want to force certificate issuance? [y/N] " ans
+ans="${ans:-N}"
+if [[ "$ans" =~ [Yy]$ ]]; then
+  green "[env] Forced certificate issuance enabled."
+  IS_LAN=0
+else
+  red "[env] Certificate issuance remains skipped."
+fi
+else
+green "[env] Public network detected, certificate issuance is available."
+fi
 
 
 MYSQL_PASS='needpasswd'
@@ -2460,7 +2500,7 @@ http {
     client_body_temp_path /usr/local/nginx/client_body_temp 1 2;
     client_max_body_size 10g;
     client_body_buffer_size 512k;
-    client_header_timeout 1800s;
+    client_header_timeout 300s;
     client_body_timeout   1800s;
     send_timeout          1800s;
 
@@ -2624,7 +2664,7 @@ http {
     client_body_temp_path /usr/local/nginx/client_body_temp 1 2;
     client_max_body_size 10g;
     client_body_buffer_size 512k;
-    client_header_timeout 1800s;
+    client_header_timeout 300s;
     client_body_timeout   1800s;
     send_timeout          1800s;
 
@@ -3058,7 +3098,7 @@ apt autoremove -y
 
 auto_optimize_services() {
   echo "=================================================="
-  echo " Automatic Optimization of LNMP (Nginx / PHP-FPM / MariaDB)" 
+  echo " Automatic Optimization of WNMP (WebDav / Nginx / PHP-FPM / MariaDB)" 
   echo "=================================================="
 
   CPU_CORES=$(nproc)
