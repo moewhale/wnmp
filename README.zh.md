@@ -85,7 +85,7 @@ bash wnmp.sh
 | 仅执行内核/网络调优 | `bash wnmp.sh tool` |
 | 重启所有服务 | `bash wnmp.sh restart` |
 | 清理 | `bash wnmp.sh remove` / `bash wnmp.sh renginx` / `bash wnmp.sh rephp` / `bash wnmp.sh remariadb` |
-
+| WSL初始化 | `bash wnmp.sh wslinit` |
 ---
 
 ## 🌐 可选页脚标识
