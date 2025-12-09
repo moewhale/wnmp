@@ -95,7 +95,7 @@ Please execute commands using the root account on a completely clean system.
 | Kernel/Network Optimization Only | `bash wnmp.sh tool` |
 | Restart All Services | `bash wnmp.sh restart` |
 | Cleanup | `bash wnmp.sh remove` / `bash wnmp.sh renginx` / `bash wnmp.sh rephp` / `bash wnmp.sh remariadb` |
-
+| WSL Initialization | `bash wnmp.sh wslinit` |
 ---
 
 ## 🌐 Optional Footer Badge
