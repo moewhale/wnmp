@@ -129,15 +129,18 @@ Ensure you are using Windows 11. First, install the WSL subsystem.
 
 Press Win+R to open the Run dialog, type `cmd`. Press Shift+Ctrl+Enter to open the Administrator Command Prompt.
 
-Type: `wsl -l -o` to check if remote system lists are accessible. If successful, WSL is functioning properly.
+wsl -l -o to check if remote system lists are accessible. If successful, WSL is functioning properly.
 
-Enter: wsl --install debian # (Begin installing the Debian 13 subsystem. The first command execution may require a system restart or prompt for missing CPU virtualization support. Follow the on-screen instructions.)
+wsl --install debian # (Begin installing the Debian 13 subsystem. The first command execution may require a system restart or prompt for missing CPU virtualization support. Follow the on-screen instructions.)
 
 After successful installation, you will be prompted to configure a standard account and password. Once configured, simply type: exit to exit the subsystem.
 
 wsl -d debian -u root # Log into the Debian system as root
 
-apt install -y curl && curl -fL https://wnmp.org/zh/wnmp.sh -o wnmp.sh && chmod +x wnmp.sh && bash wnmp.sh wslinit
+```bash
+cd ~
+apt update && apt install -y curl && curl -fL https://wnmp.org/wnmp.sh -o wnmp.sh && chmod +x wnmp.sh && bash wnmp.sh wslinit
+```
 
 In the taskbar, navigate to and open:
 C:\Users\[username]\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup
