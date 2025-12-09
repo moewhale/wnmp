@@ -3,7 +3,7 @@
 # Copyright (C) 2025 wnmp.org
 # Website: https://wnmp.org
 # License: GNU General Public License v3.0 (GPLv3)
-# Version: 1.03
+# Version: 1.04
 
 set -euo pipefail
 
@@ -183,6 +183,7 @@ is_lan() {
 
 is_lan
 
+
 if [[ "$IS_LAN" -eq 1 ]]; then
 red "[env] Detected a LAN environment, certificate issuance will be skipped."
 read -rp "Do you want to force certificate issuance? [y/N] " ans
@@ -196,6 +197,8 @@ fi
 else
 green "[env] Public network detected, certificate issuance is available."
 fi
+
+
 
 
 
@@ -490,10 +493,13 @@ http {
         if ($is_allowed_host = 0) { return 403; }
 
         error_page 403 = @e403;
+
         location @e403 {
             root html;
             internal;
-            set $is_allowed_host 1;
+            types { }
+            default_type text/html;
+            add_header Content-Type "text/html; charset=utf-8";  
             try_files /403.html =403;
         }
 
@@ -501,7 +507,9 @@ http {
         location @e404 {
             root html;
             internal;
-            set $is_allowed_host 1;
+            types { }
+            default_type text/html;
+            add_header Content-Type "text/html; charset=utf-8";
             try_files /404.html =404;
         }
         
@@ -664,10 +672,15 @@ server{
     server_name example;
     root  /home/wwwroot/default;
     index index.html index.php;
+
     error_page 403 = @e403;
+
     location @e403 {
         root html;
-        internal;  
+        internal;
+        types { }
+        default_type text/html;
+        add_header Content-Type "text/html; charset=utf-8";  
         try_files /403.html =403;
     }
 
@@ -675,8 +688,12 @@ server{
     location @e404 {
         root html;
         internal;
+        types { }
+        default_type text/html;
+        add_header Content-Type "text/html; charset=utf-8";
         try_files /404.html =404;
     }
+
     tcp_nopush on;
     tcp_nodelay on;
     include enable-php.conf;
@@ -753,10 +770,15 @@ server{
     server_name example;
     root  /home/wwwroot/default;
     index index.html index.php;
+
     error_page 403 = @e403;
+
     location @e403 {
         root html;
-        internal;  
+        internal;
+        types { }
+        default_type text/html;
+        add_header Content-Type "text/html; charset=utf-8";  
         try_files /403.html =403;
     }
 
@@ -764,6 +786,9 @@ server{
     location @e404 {
         root html;
         internal;
+        types { }
+        default_type text/html;
+        add_header Content-Type "text/html; charset=utf-8";
         try_files /404.html =404;
     }
     tcp_nopush on;
@@ -2138,11 +2163,17 @@ aio on;
 directio 4m;
 output_buffers 1 512k;           
 location ~* \.html?$ {
-    types { } 
     default_type application/octet-stream;
     add_header Content-Disposition "attachment" always;
     add_header X-Content-Type-Options "nosniff" always;
-    try_files $uri =404;
+    try_files $uri 404;
+}
+
+location ~* \.php?$ {
+    default_type application/octet-stream;
+    add_header Content-Disposition "attachment" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    try_files /404.html =404;
 }
 EOF
 
@@ -2419,11 +2450,15 @@ http {
         server_name _;
         root  /home/wwwroot/default;
         index index.html index.php;
+
         error_page 403 = @e403;
+
         location @e403 {
             root html;
             internal;
-            set $is_allowed_host 1;
+            types { }
+            default_type text/html;
+            add_header Content-Type "text/html; charset=utf-8";  
             try_files /403.html =403;
         }
 
@@ -2431,7 +2466,9 @@ http {
         location @e404 {
             root html;
             internal;
-            set $is_allowed_host 1;
+            types { }
+            default_type text/html;
+            add_header Content-Type "text/html; charset=utf-8";
             try_files /404.html =404;
         }
 
@@ -2584,10 +2621,13 @@ http {
         if ($is_allowed_host = 0) { return 403; }
 
         error_page 403 = @e403;
+
         location @e403 {
             root html;
             internal;
-            set $is_allowed_host 1;
+            types { }
+            default_type text/html;
+            add_header Content-Type "text/html; charset=utf-8";  
             try_files /403.html =403;
         }
 
@@ -2595,7 +2635,9 @@ http {
         location @e404 {
             root html;
             internal;
-            set $is_allowed_host 1;
+            types { }
+            default_type text/html;
+            add_header Content-Type "text/html; charset=utf-8";
             try_files /404.html =404;
         }
         ssl_certificate     /usr/local/nginx/ssl/default/cert.pem;
