@@ -159,7 +159,7 @@ Additional WSL commands: In the Windows cmd environment (not the subsystem shell
 
 ```wsl -l -v``` # View list of installed systems
 ```wsl --shutdown``` # Stop the subsystem
-```wsl --unregister``` # Unregister the subsystem
+```wsl --unregister debian``` # Unregister the subsystem
 
 To enable LAN access to the subsystem, navigate to the C:\Users\[username] directory. Replace [username] with your actual Windows login name.
 
