@@ -124,6 +124,30 @@ After configuring key-based login, the server will block all username/password l
 
 ---
 
+## ❓ Why doesn’t WNMP provide a control panel?
+**Because the most secure server is the one without a control panel.**
+
+GUI-based panels (such as BT Panel) make server management easier,  
+but they also introduce serious security and performance trade-offs:
+
+- 🔓 Extra open ports (e.g. 8888) increase the attack surface;  
+- ⚠️ Password-based SSH login invites brute-force attacks;  
+- 🧩 Persistent daemons may lead to privilege escalation risks;  
+- 🔄 Auto-updates and plugin systems reduce auditability.
+
+**WNMP takes a completely different philosophy:**
+
+- ✅ **SSH key-only authentication by default** — the industry’s most secure method;  
+- ✅ **No web panel ports**, no long-running background processes;  
+- ✅ **Fully transparent, scriptable, and version-controllable system**;  
+- ✅ **Focus on host-level performance and security baseline**, not GUI convenience.
+
+WNMP is not a replacement for BT Panel —  
+it’s an **engineer-oriented deployment template** designed for transparency, control, and maximum security.  
+**In WNMP, the command line *is* your control panel.**
+
+> Panels trade security for convenience — WNMP restores control and trust.
+
 ## How to Install and Use WMMP on Windows?
 
 Ensure you are using Windows 11. First, install the WSL subsystem.
