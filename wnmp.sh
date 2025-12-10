@@ -349,7 +349,7 @@ webdav() {
     echo "[webdav] No password file found, creating..."
     htpasswd -cbB "$passwd_file" "$user" "$pass"
   fi
-
+ 
   chown www:www "$passwd_file" 2>/dev/null || true
   chmod 640 "$passwd_file" 2>/dev/null || true
 
@@ -1880,8 +1880,9 @@ CONFIGURE_OPTS=(
   "--enable-sockets"
   "--with-zip"
 )
-if [[ "$php_version" =~ ^8\.2\. ]]; then
-  CONFIGURE_OPTS+=("--enable-opcache")
+
+if [[  "$php_version" =~ ^8\.2\. ]]; then
+ CONFIGURE_OPTS+=("--enable-opcache")
 fi
 
 ./configure "${CONFIGURE_OPTS[@]}"
@@ -1975,7 +1976,6 @@ upload_tmp_dir = /data/php_upload_tmp
 allow_url_fopen = Off
 allow_url_include = Off
 default_socket_timeout = 60
-zend_extension=opcache
 
 [Pdo_mysql]
 pdo_mysql.default_socket=/tmp/mariadb.sock
@@ -2020,6 +2020,7 @@ extension=swoole.so
 extension=apcu.so
 extension=inotify.so
 extension=redis.so
+zend_extension=opcache
 [PHP]
 engine = On
 short_open_tag = Off
@@ -2049,8 +2050,6 @@ upload_tmp_dir = /data/php_upload_tmp
 allow_url_fopen = Off
 allow_url_include = Off
 default_socket_timeout = 60
-zend_extension=opcache
-
 
 [Pdo_mysql]
 pdo_mysql.default_socket=/tmp/mariadb.sock
