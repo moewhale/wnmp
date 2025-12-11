@@ -3,7 +3,7 @@
 # Copyright (C) 2025 wnmp.org
 # Website: https://wnmp.org
 # License: GNU General Public License v3.0 (GPLv3)
-# Version: 1.09
+# Version: 1.10
 
 set -euo pipefail
 
@@ -1283,33 +1283,16 @@ KERNEL_TUNE_ONLY=0
 
 
 sshkey() {
-if [[ "$IS_LAN" -eq 1 ]]; then
-red "[env] Detected a LAN environment, certificate issuance will be skipped."
-read -rp "Do you want to force certificate issuance? [y/N] " ans
-ans="${ans:-N}"
-if [[ "$ans" =~ [Yy]$ ]]; then
-  green "[env] Forced certificate issuance enabled."
-  IS_LAN=0
-else
-  red "[env] Certificate issuance remains skipped."
-fi
-else
-green "[env] Public network detected, certificate issuance is available."
-fi
-  set -euo pipefail
-  if [[ "$IS_LAN" -eq 1 ]]; then
-    echo "[env] Currently in an internal network environment; certificate application has been skipped."
-    exit 0
-  fi
+
   echo
   echo "====================================================================="
-  echo "⚠️  Warning: Do NOT disconnect until you've saved the private key to your computer"
-  echo "⚠️  Do not disconnect this SSH session, or you may lose access!"
+  echo "⚠️  Strong Reminder: Before you confirm that the PRIVATE KEY has been saved on your local computer,"
+  echo "⚠️  DO NOT disconnect this SSH session, otherwise you will lose access to the server!"
   echo "====================================================================="
   echo
-  read -rp "Proceed to enable key-only login for root? (type yes to confirm): " ans
+  read -rp "Continue and enable root key-only login? (type yes to confirm): " ans
   if [[ "${ans,,}" != "yes" ]]; then
-    echo "[safe] Operation cancelled. No changes made."
+    echo "[safe] Operation canceled. No changes made."
     return 0
   fi
 
@@ -1320,7 +1303,7 @@ fi
   fi
   [[ -z "${SSHD_BIN}" && -x /sbin/sshd ]] && SSHD_BIN="/sbin/sshd"
   if [[ -z "${SSHD_BIN}" ]]; then
-    echo "[safe][ERROR] sshd binary not found. Please install openssh-server."
+    echo "[safe][ERROR] sshd executable not found. Please install openssh-server first."
     return 1
   fi
 
@@ -1341,13 +1324,12 @@ fi
   local OVR_FILE="${OVR_DIR}/zzz-root-keys-only.conf"
   local OVR_BACKUP_DIR="/etc/ssh/sshd_config.d.bak-${NOW}"
 
-  echo "[safe] Configuring key-only login for root..."
-
+  echo "[safe] Configuring root user for [key-only login]..."
 
   if grep -Eq '^[[:space:]]*ClientAliveInterval[[:space:]]+[0-9]+[[:space:]]+[^#]+' "$SSHD_MAIN"; then
     cp -a "$SSHD_MAIN" "${SSHD_MAIN}.prelint-${NOW}"
     sed -i -E 's/^([[:space:]]*ClientAliveInterval)[[:space:]]+[0-9]+.*/\1 120/' "$SSHD_MAIN"
-    echo "[safe] Fixed invalid trailing annotation: normalized 'ClientAliveInterval 120'"
+    echo "[safe] Fixed malformed tail comment: ClientAliveInterval line normalized to 'ClientAliveInterval 120'"
   fi
 
 
@@ -1364,22 +1346,22 @@ fi
 
   local PASSPHRASE_OPT=""
   echo
-  read -rp "Add a passphrase to the new key (will be required on login)?[y/N]: " setpass
+  read -rp "Add a passphrase to the new key (you’ll need it when logging in)? [y/N]: " setpass
   if [[ "${setpass,,}" =~ ^(y|yes)$ ]]; then
-    echo "[safe] A passphrase will be set for the new key..."
+    echo "[safe] Passphrase will be set for the new key..."
     PASSPHRASE_OPT="-N"
   else
     PASSPHRASE_OPT="-N \"\""
   fi
 
- 
+
   if [[ -f "${PRIV_KEY}" || -f "${PUB_KEY}" ]]; then
-    echo "[safe] Existing root keypair detected, backing up..."
+    echo "[safe] Existing root key pair detected, backing up..."
     [[ -f "${PRIV_KEY}" ]] && mv -f "${PRIV_KEY}" "${PRIV_KEY}.bak-${NOW}"
     [[ -f "${PUB_KEY}"  ]] && mv -f "${PUB_KEY}"  "${PUB_KEY}.bak-${NOW}"
   fi
 
-  echo "[safe] Generating ED25519 keypair..."
+  echo "[safe] Generating ED25519 key pair..."
   if [[ "${PASSPHRASE_OPT}" == "-N" ]]; then
     ssh-keygen -t ed25519 -a 100 -C "${COMMENT}" -f "${PRIV_KEY}"
   else
@@ -1394,19 +1376,59 @@ fi
   touch "${AUTH_KEYS}"
   chmod 600 "${AUTH_KEYS}"
   chown root:root "${AUTH_KEYS}"
-  if ! grep -qF "$(cat "${PUB_KEY}")" "${AUTH_KEYS}"; then
-    cat "${PUB_KEY}" >> "${AUTH_KEYS}"
-  fi
+
+
+local NEW_KEY_TYPE NEW_KEY_B64 NEW_KEY_LINE
+NEW_KEY_TYPE=$(awk '{print $1}' "${PUB_KEY}" | tr -d '
+' || true)
+NEW_KEY_B64=$(awk '{print $2}' "${PUB_KEY}" | tr -d '
+' || true)
+NEW_KEY_LINE="${NEW_KEY_TYPE} ${NEW_KEY_B64} ${COMMENT}"
+
+if [[ -z "${NEW_KEY_TYPE}" || -z "${NEW_KEY_B64}" ]]; then
+  echo "[safe][ERROR] Unable to parse generated public key. Please check ${PUB_KEY}."
+  return 1
+fi
+
+if [[ -f "${AUTH_KEYS}" ]]; then
+  cp -a "${AUTH_KEYS}" "${AUTH_KEYS}.bak-${NOW}"
+  echo "[safe] Original authorized_keys backed up as ${AUTH_KEYS}.bak-${NOW}"
+else
+  touch "${AUTH_KEYS}"
+fi
+chmod 600 "${AUTH_KEYS}"
+chown root:root "${AUTH_KEYS}"
+
+
+printf '%s
+' "${NEW_KEY_LINE}" > "${AUTH_KEYS}.tmp"
+
+chmod 600 "${AUTH_KEYS}.tmp"
+chown root:root "${AUTH_KEYS}.tmp"
+mv -f "${AUTH_KEYS}.tmp" "${AUTH_KEYS}"
+
+echo "[safe] Authorized key file updated: only the newly generated key retained (${AUTH_KEYS}). Old keys backed up to ${AUTH_KEYS}.bak-${NOW}."
+
+find "${SSH_DIR}" -maxdepth 1 -type f \( -name "${KEY_NAME}.bak-*" -o -name "${KEY_NAME}.pub.bak-*" -o -name "${KEY_NAME}.pub.bak-*" \) -print -exec rm -f {} \; || true
+
+find "${SSH_DIR}" -maxdepth 1 -type f -name "${KEY_NAME}.*.bak-*" -print -exec rm -f {} \; || true
+
+echo "[safe] Removed historical private/public key backups (if any)."
+
+chmod 700 "${SSH_DIR}"
+chmod 600 "${PRIV_KEY}"
+chmod 644 "${PUB_KEY}"
+chown root:root "${PRIV_KEY}" "${PUB_KEY}"
 
 
   cp -a "${SSHD_MAIN}" "${SSHD_BAK}"
-  echo "[safe] Backed up main config：${SSHD_BAK}"
+  echo "[safe] Main config backed up: ${SSHD_BAK}"
 
   mkdir -p "${OVR_DIR}"
   if [ "$(find "${OVR_DIR}" -type f | wc -l)" -gt 0 ]; then
     mkdir -p "${OVR_BACKUP_DIR}"
     find "${OVR_DIR}" -maxdepth 1 -type f -print -exec mv -f {} "${OVR_BACKUP_DIR}/" \;
-    echo "[safe] Backed up and emptied /etc/ssh/sshd_config.d -> ${OVR_BACKUP_DIR}"
+    echo "[safe] Backed up and cleared /etc/ssh/sshd_config.d -> ${OVR_BACKUP_DIR}"
   fi
 
 
@@ -1426,9 +1448,9 @@ EOF
   grep -Eq '^[[:space:]]*Include[[:space:]]+/etc/ssh/sshd_config\.d/\*\.conf' "$SSHD_MAIN" || sed -i '1i Include /etc/ssh/sshd_config.d/*.conf' "$SSHD_MAIN"
 
 
-  echo "[safe] Checking sshd config syntax (${SSHD_BIN} -t)..."
+  echo "[safe] Checking sshd configuration syntax (${SSHD_BIN} -t)..."
   if ! err="$("${SSHD_BIN}" -t 2>&1)"; then
-    echo "[safe][ERROR] sshd -t Failed："; echo "$err"
+    echo "[safe][ERROR] sshd -t failed:"; echo "$err"
     echo "[safe] Rolling back..."
     rm -f "${OVR_FILE}" || true
     mv -f "${SSHD_BAK}" "${SSHD_MAIN}"
@@ -1451,15 +1473,15 @@ EOF
 
 
   echo
-  echo "[safe] Public key fingerprint (SHA256)："
+  echo "[safe] Public key fingerprint (SHA256):"
   ssh-keygen -lf "${PUB_KEY}" -E sha256 | awk '{print " - "$0}'
   echo
-  echo "==================  Copy the PRIVATE KEY content below to your local file (e.g., save as test.key; import into your SSH client to login as root by key).  =================="
+  echo "==================  Copy the following PRIVATE KEY content to your local computer (e.g., save as test.key and import into Xshell or another client for root key login)  =================="
   cat "${PRIV_KEY}"
   echo
-  echo "==================  End of copy  ================="
+  echo "==================  End of copy  =================="
   echo
-  echo "[safe] One-line private key (stored on server at${AUTH_KEYS}）："
+  echo "[safe] One-line private key (already stored on server in ${AUTH_KEYS}):"
   if base64 --help 2>&1 | grep -q -- "-w"; then
     base64 -w0 "${PRIV_KEY}"
   else
@@ -1468,12 +1490,13 @@ EOF
  
   local SERVER_IP
   SERVER_IP="$(ip -o -4 addr show | awk '!/ lo / && /inet /{gsub(/\/.*/,"",$4); print $4; exit}')"
-  echo "[safe] Test command：ssh -i ~/.ssh/${KEY_NAME} root@<SERVER>"
-  [[ -n "${SERVER_IP:-}" ]] && echo "      Current server IP：${SERVER_IP}"
+  echo "[safe] Test command: ssh -i ~/.ssh/${KEY_NAME} root@<SERVER>"
+  [[ -n "${SERVER_IP:-}" ]] && echo "      Current server IP: ${SERVER_IP}"
   echo
-  echo "[safe] Enabled: root can login by key only."
-  echo "[safe] To revert：mv -f ${SSHD_BAK} ${SSHD_MAIN} && systemctl restart ssh"
+  echo "[safe] Enabled: root login via key only."
+  echo "[safe] To revert: mv -f ${SSHD_BAK} ${SSHD_MAIN} && systemctl restart ssh"
 }
+
 
 
 
