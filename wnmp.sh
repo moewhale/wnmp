@@ -29,10 +29,12 @@ fi
 
 export LC_BYOBU="${LC_BYOBU-}"
 
+export PATH="/usr/local/php/bin:/usr/local/mariadb/bin:${PATH}"
+
 if [[ -t 1 && -z "${WNMP_UNDER_SCRIPT:-}" ]]; then
   if command -v script >/dev/null 2>&1; then
     export WNMP_UNDER_SCRIPT=1
-    exec script -qef -c "env SYSTEMD_COLORS=1 SYSTEMD_PAGER=cat bash --noprofile --norc '$0' $*" "$LOGFILE"
+    exec script -qef -c "env PATH=\"$PATH\" SYSTEMD_COLORS=1 SYSTEMD_PAGER=cat bash --noprofile --norc '$0' $*" "$LOGFILE"
   else
     echo "[WARN] 'script' not found; continuing without logging to file."
   fi
@@ -71,9 +73,55 @@ Usage:
   bash wnmp.sh rephp         # Uninstallphp
   bash wnmp.sh remariadb     # Uninstallmariadb
   bash wnmp.sh wslinit       # Wsl open SSH Server
+  bash wnmp.sh fixsshd       # Self-check sshd and attempt to repair
   bash wnmp.sh -h|--help     # Show help
 USAGE
 }
+
+fixsshd() {
+  echo "=========================================="
+  echo "[+] Starting to repair SSHD configuration and host key permissions..."
+  echo "=========================================="
+  set -euo pipefail
+
+  # 1) Fix permissions for /etc/ssh and its include directory
+  mkdir -p /etc/ssh/sshd_config.d
+  chown -R root:root /etc/ssh
+  chmod 755 /etc/ssh /etc/ssh/sshd_config.d
+  find /etc/ssh/sshd_config.d -type f -exec chown root:root {} \; -exec chmod 0644 {} \;
+  echo "[OK] Directory permissions have been fixed."
+
+  # 2) Remove potentially corrupted HostKeys, regenerate them, and fix permissions
+  rm -f /etc/ssh/ssh_host_*_key /etc/ssh/ssh_host_*_key.pub || true
+  ssh-keygen -A >/dev/null
+  chown root:root /etc/ssh/ssh_host_*_key
+  chmod 600 /etc/ssh/ssh_host_*_key
+  echo "[OK] SSH HostKeys have been regenerated."
+
+  # 3) Validate sshd configuration
+  echo "[*] Checking if sshd configuration is valid..."
+  if ! /usr/sbin/sshd -t; then
+    echo "[!] sshd configuration test failed. Showing detailed log:"
+    /usr/sbin/sshd -t -E /tmp/sshd-check.log || true
+    tail -n +1 /tmp/sshd-check.log
+    echo "=========================================="
+    echo "[X] sshd configuration still contains errors. Please check the log above."
+    echo "=========================================="
+    return 1
+  fi
+  echo "[OK] sshd configuration test passed."
+
+  # 4) Reload and restart SSH service
+  systemctl daemon-reload
+  systemctl restart ssh || systemctl restart sshd || true
+  echo "[OK] sshd restart attempted. Current status:"
+  systemctl status ssh --no-pager --full || systemctl status sshd --no-pager --full || true
+  echo "=========================================="
+  echo "[✓] SSH repair process completed."
+  echo "=========================================="
+}
+
+
 
 wslinit(){
 
@@ -146,6 +194,9 @@ ssh-keygen -A
 mkdir -p /run/sshd && sudo chmod 755 /run/sshd
 ssh-keygen -A
 systemctl restart sshd
+
+fixsshd || echo "[WARN] SSHD self-check failed. Please run 'bash wnmp.sh fixsshd' manually to view the details."
+
 echo
 echo "================= Complete ================="
 echo "[OK] System upgraded, common tools and openssh-server installed."
@@ -1522,6 +1573,7 @@ for arg in "$@"; do
      rephp) rephp; exit 0 ;;
      remariadb) remariadb; exit 0 ;;
      wslinit) wslinit; exit 0 ;;
+     fixsshd) fixsshd; exit 0 ;;
      "") ;;
      *) echo "[setup] Unknown parameter: ${arg}"; usage; exit 1 ;;
    esac
@@ -1719,18 +1771,22 @@ ensure_user() {
 }
 
 
-if ! grep -q '/usr/local/php/bin' /etc/profile; then
-  cp /etc/profile /etc/profile.bak
-  sed -i '/^# The following global variables added by the script:$/,+1d' /etc/profile || true
-  cat >> /etc/profile << 'EOF'
-export PATH="/usr/local/php/bin:/usr/local/mariadb/bin:$PATH"
+install -m 0644 /dev/stdin /etc/profile.d/wnmp-path.sh <<'EOF'
+# WNMP: global PATH for login/interactive shells
+export PATH="/usr/local/php/bin:/usr/local/mariadb/bin:${PATH}"
 EOF
-  echo -e "${GREEN}Written /etc/profile${NC}"
 
-  source /etc/profile
-else
-  echo -e "${GREEN}The global variable already exists.${NC}"
+if ! grep -q 'wnmp-path.sh' /etc/bash.bashrc 2>/dev/null; then
+  printf '\n# WNMP PATH for interactive shells\n[ -f /etc/profile.d/wnmp-path.sh ] && . /etc/profile.d/wnmp-path.sh\n' >> /etc/bash.bashrc
 fi
+
+export PATH="/usr/local/php/bin:/usr/local/mariadb/bin:${PATH}"
+hash -r
+
+echo -e "${GREEN}PATH has been written to /etc/profile.d/wnmp-path.sh and injected into /etc/bash.bashrc; the current session is now active.${NC}"
+echo -e "${GREEN}PHP path: $(command -v php || echo 'Not found')${NC}"
+
+
 
 PHP="/usr/local/php/bin/php"
 PHPIZE="/usr/local/php/bin/phpize"
@@ -3137,6 +3193,7 @@ EOF
     echo -e "\033[33m[skip] WSL detected; skipping kernel tuning (wnmp_kernel_tune)...\033[0m"
     cd /root
     bash wnmp.sh status
+    echo -e "\033[33m[skip] The global variables mysql and php -m will take effect only after rebooting the physical Windows 11 computer...\033[0m"
   else
     echo -e "\033[32m[optimize] Running kernel/network optimizations...\033[0m"
     wnmp_kernel_tune
