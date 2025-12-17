@@ -1206,7 +1206,7 @@ purge_php() {
          /usr/local/bin/php* \
          /usr/local/lib/php \
          /usr/lib/php \
-         /root/php-*/ /root/apcu* /root/inotify* /root/php-*.tar.* /usr/local/src/php-* /root/swoole*
+         /root/php-*/  /root/inotify* /root/php-*.tar.* /usr/local/src/php-* /root/swoole*
 
   apt purge -y 'php*' 2>/dev/null || true
   apt autoremove -y 2>/dev/null || true
@@ -2027,7 +2027,6 @@ php_version="${php_version:-$("$PHP" -r 'echo PHP_VERSION;')}"
 if [[ "$php_version" =~ ^8\.5\. ]]; then
   cat <<'EOF' > /usr/local/php/etc/php.ini
 extension=swoole.so
-extension=apcu.so
 extension=inotify.so
 extension=redis.so
 [PHP]
@@ -2100,7 +2099,6 @@ EOF
 else
     cat <<'EOF' > /usr/local/php/etc/php.ini
 extension=swoole.so
-extension=apcu.so
 extension=inotify.so
 extension=redis.so
 zend_extension=opcache
@@ -2194,7 +2192,6 @@ fi
   
   pecl_build_from_source redis || echo -e "${RED}Warning:redis Installation Failed${NC}" 
   pecl_build_from_source inotify || echo -e "${RED}Warning:inotify Installation Failed${NC}"
-  pecl_build_from_source apcu || echo -e "${RED}Warning:apcu Installation Failed${NC}"
 else
   echo 'Do not install PHP'
 fi
