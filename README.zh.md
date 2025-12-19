@@ -148,8 +148,11 @@ Win+R 组合键打开运行输入框，输入cmd # 键盘组合键shift+ctrl+ent
 
 `wsl -d debian -u root` # 以root账号身份登录debian系统
 ```bash
-cd ~
-apt update && apt install -y curl && curl -fL https://wnmp.org/zh/wnmp.sh -o wnmp.sh && chmod +x wnmp.sh && bash wnmp.sh wslinit
+cd /root
+apt update && apt install -y curl
+curl -fL https://wnmp.org/zh/wnmp.sh -o wnmp.sh
+chmod +x wnmp.sh
+bash wnmp.sh wslinit
 ```
 在此电脑任务地址栏定位打开C:\Users\[username]\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup # 请用windows登录的真实账号名代替[username]
 
@@ -157,6 +160,7 @@ apt update && apt install -y curl && curl -fL https://wnmp.org/zh/wnmp.sh -o wnm
 ```bash
 Set ws = CreateObject("Wscript.Shell")
 ws.run "wsl -d debian", 0
+#(ws.run "wsl -d ubuntu", 0)
 ```
 初始化完成后，子系统已安装SSH服务端，根据提示重启电脑后，你可以像正常服务器VPS一样用SSH客户端登录你的wsl debian 子系统
 
@@ -187,6 +191,7 @@ hostAddressLoopback=true
 `Set-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -DefaultInboundAction Allow`
 
 再次重启电脑。现在你可以登录与你本机win系统相同局域网IP地址登录子系统。请在cmd命令控制台输入ipconfig 查看你的本机局域网IP
+重启电脑后，用ssh客户端工具进入子系统直接执行 bash wnmp.sh 开始部署web环境
 
 ---
 
