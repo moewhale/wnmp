@@ -207,6 +207,7 @@ Run the following command in an administrator PowerShell window to configure Hyp
 `Set-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -DefaultInboundAction Allow`
 
 Restart your computer again. You can now log into the subsystem using the same LAN IP address as your local Windows system. Enter `ipconfig` in the cmd console to view your local LAN IP.
+
 After restarting the computer, use an SSH client tool to access the subsystem and directly execute bash wnmp.sh to begin deploying the web environment.
 
 ## 📖 License
