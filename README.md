@@ -7,6 +7,11 @@
 ![Platform](https://img.shields.io/badge/Platform-Debian%2012%2F13%20%7C%20Ubuntu%2022--25-green.svg)
 ![Build](https://img.shields.io/badge/Installer-One%20Command-orange.svg)
 
+## The wnmp.org one-click web environment installation package has been officially recognized by the Mroonga search engine and has been listed with a backlink on the official Mroonga users page.
+https://mroonga.org/users/
+
+
+
 > Lightweight · Stable · Reproducible  
 > A one-click shell On Windows11(WSL)+Linux(Debian,Ubuntu) installer for building a production-ready web stack with **Nginx, PHP, MariaDB (Mroonga engine),WebDAV** and automatic kernel/network tuning.
 
