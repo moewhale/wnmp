@@ -191,6 +191,7 @@ hostAddressLoopback=true
 `Set-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -DefaultInboundAction Allow`
 
 再次重启电脑。现在你可以登录与你本机win系统相同局域网IP地址登录子系统。请在cmd命令控制台输入ipconfig 查看你的本机局域网IP
+
 重启电脑后，用ssh客户端工具进入子系统直接执行 bash wnmp.sh 开始部署web环境
 
 ---
