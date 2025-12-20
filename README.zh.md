@@ -1,4 +1,4 @@
-# 🌀 WNMP 一键安装包
+# 🌀 WNMP 一键安装包-完整教程见官网[wnmp.org](https://wnmp.org/zh.html)
 **Windows11(WSL)+Linux(Debian,Ubuntu) · Nginx · Mariadb(Mroonga) · PHP · WebDAV · 内核调优**
 
 ![License](https://img.shields.io/badge/License-GPLv3-blue.svg)
