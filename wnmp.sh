@@ -220,20 +220,70 @@ echo "========================================"
 
 }
 
+
+
+
 IS_LAN=1
 PUBLIC_IP=""
 
 is_lan() {
-  local ip
-  for ip in $(hostname -I 2>/dev/null); do
-    [[ "$ip" =~ ^127\. ]] && continue
-    [[ "$ip" =~ : ]] && continue   # 跳过 IPv6
-    break
-  done
+  local ip="" wan=""
+
+  _pick_best_ipv4() {
+    local x private=""
+
+    for x in $(hostname -I 2>/dev/null); do
+      [[ -z "$x" ]] && continue
+      [[ "$x" =~ : ]] && continue        # 跳过 IPv6
+      [[ "$x" =~ ^127\. ]] && continue
+
+      if [[ "$x" =~ ^10\. ]] || \
+         [[ "$x" =~ ^172\.(1[6-9]|2[0-9]|3[0-1])\. ]] || \
+         [[ "$x" =~ ^192\.168\. ]] || \
+         [[ "$x" =~ ^169\.254\. ]]; then
+        [[ -z "$private" ]] && private="$x"
+        continue
+      fi
+      echo "$x"
+      return 0
+    done
+
+
+    [[ -n "$private" ]] && echo "$private" || echo ""
+  }
+
+  _get_public_ipv4() {
+    local out=""
+
+    if command -v curl >/dev/null 2>&1; then
+      out="$(curl -4fsS --max-time 3 https://1.1.1.1/cdn-cgi/trace 2>/dev/null \
+        | awk -F= '/^ip=/{print $2; exit}')"
+      [[ -z "$out" ]] && out="$(curl -4fsS --max-time 3 https://api.ipify.org 2>/dev/null | tr -d '\r\n ')"
+      [[ -z "$out" ]] && out="$(curl -4fsS --max-time 3 https://ifconfig.me/ip 2>/dev/null | tr -d '\r\n ')"
+      [[ -z "$out" ]] && out="$(curl -4fsS --max-time 3 https://checkip.amazonaws.com 2>/dev/null | tr -d '\r\n ')"
+      [[ -z "$out" ]] && out="$(curl -4fsS --max-time 3 https://icanhazip.com 2>/dev/null | tr -d '\r\n ')"
+    elif command -v wget >/dev/null 2>&1; then
+      out="$(wget -4qO- --timeout=3 https://1.1.1.1/cdn-cgi/trace 2>/dev/null \
+        | awk -F= '/^ip=/{print $2; exit}')"
+      [[ -z "$out" ]] && out="$(wget -4qO- --timeout=3 https://api.ipify.org 2>/dev/null | tr -d '\r\n ')"
+      [[ -z "$out" ]] && out="$(wget -4qO- --timeout=3 https://ifconfig.me/ip 2>/dev/null | tr -d '\r\n ')"
+      [[ -z "$out" ]] && out="$(wget -4qO- --timeout=3 https://checkip.amazonaws.com 2>/dev/null | tr -d '\r\n ')"
+      [[ -z "$out" ]] && out="$(wget -4qO- --timeout=3 https://icanhazip.com 2>/dev/null | tr -d '\r\n ')"
+    fi
+
+    if [[ "$out" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+      echo "$out"
+    else
+      echo ""
+    fi
+  }
+
+  ip="$(_pick_best_ipv4)"
 
   if [[ -z "$ip" ]]; then
     IS_LAN=1
-    PUBLIC_IP=""
+    PUBLIC_IP="$(_get_public_ipv4)"
+    [[ -z "$PUBLIC_IP" ]] && PUBLIC_IP=""
     return 0
   fi
 
@@ -242,13 +292,17 @@ is_lan() {
      [[ "$ip" =~ ^192\.168\. ]] || \
      [[ "$ip" =~ ^169\.254\. ]]; then
     IS_LAN=1
-    PUBLIC_IP=""
+    wan="$(_get_public_ipv4)"
+    PUBLIC_IP="${wan:-}"
   else
     IS_LAN=0
     PUBLIC_IP="$ip"
   fi
+
   return 0
 }
+
+
 
 is_lan
 
@@ -590,8 +644,7 @@ server{
     ssl_prefer_server_ciphers off;
     ssl_session_timeout 1d;
     ssl_session_tickets off;
-    ssl_stapling on;
-    ssl_stapling_verify on;
+   
     location ~* /(low)/                 { deny all; }
     location ~* ^/(upload|uploads)/.*\.php$ { deny all; }
     location ~* .*\.(log|sql|db|back|conf|cli|bak|env)$ { deny all; }
@@ -839,14 +892,14 @@ EOF
     local -a args
     if [[ $dns_cf_ok -eq 1 ]]; then
       echo "[vhost][ISSUE] Issuing for all domains using dns_cf..."
-      args=( --issue --dns dns_cf -d "$primary" )
+      args=( --issue --server letsencrypt --dns dns_cf -d "$primary" )
       for d in "${others[@]}"; do args+=( -d "$d" ); done
-      CF_Token="$CF_Token_val" "$acme_bin" "${args[@]}" --keylength ec-256 || true
+      CF_Token="$CF_Token_val" "$acme_bin" "${args[@]}" --keylength ec-256 --force|| true
     else
       echo "[vhost][ISSUE] Issuing for all domains using webroot..."
-      args=( --issue -d "$primary" )
+      args=( --issue --server letsencrypt -d "$primary" )
       for d in "${others[@]}"; do args+=( -d "$d" ); done
-      args+=( --webroot "$site_root" --keylength ec-256 --debug 2 )
+      args+=( --webroot "$site_root" --keylength ec-256 --force )
       "$acme_bin" "${args[@]}" || true
     fi
 
@@ -1966,15 +2019,15 @@ case "$choosenginx" in
 
     cd /root
 
-    cd /root
-    apt-get install -y cron curl tar
+    apt-get install -y cron curl socat tar
     systemctl enable --now cron
 
     curl https://get.acme.sh | sh -s email=1@gmail.com
     bash /root/.acme.sh/acme.sh --set-default-ca --server letsencrypt
     ln -sf /root/.acme.sh/acme.sh /usr/local/bin/acme.sh
-    if [[ "$IS_LAN" -eq 0 ]]; then  
-      acme.sh --issue --server letsencrypt -d ${PUBLIC_IP} --certificate-profile shortlived  --standalone --force
+    if [[ "$IS_LAN" -eq 0 ]]; then
+      echo "$PUBLIC_IP"
+      acme.sh --issue --server letsencrypt -d "$PUBLIC_IP" --certificate-profile shortlived  --standalone --force
     fi
 
 
@@ -2546,7 +2599,7 @@ EOF
 fi
 
     if [[ "$IS_LAN" -eq 0 ]]; then  
-      acme.sh --install-cert -d ${PUBLIC_IP} --ecc --key-file  /usr/local/nginx/ssl/default/key.pem  --fullchain-file /usr/local/nginx/ssl/default/cert.pem --ca-file  /usr/local/nginx/ssl/default/ca.pem
+      acme.sh --install-cert -d "$PUBLIC_IP" --ecc --key-file  /usr/local/nginx/ssl/default/key.pem  --fullchain-file /usr/local/nginx/ssl/default/cert.pem --ca-file  /usr/local/nginx/ssl/default/ca.pem
     fi
 
     systemctl daemon-reload
