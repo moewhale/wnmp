@@ -34,15 +34,25 @@ Therefore, WNMP is recommended for use on KVM virtual machines, cloud servers, o
 
 
 ## Update Log
+
 v1.15 Removed the default function. Let's Encrypt IP certificates are automatically issued by default, with NGINX BASIC AUTH enabled for additional security. The database is accessible directly at https://[ip]/phpmyadmin.
+
 v1.13 introduces further kernel parameter tuning to enhance system concurrency.
+
 v1.12 Added support for MariaDB 11.8.5 and optimized my.cnf with more reasonable default configurations.
+
 v1.10 Modify SSH key logic: When multiple SSH keys are requested, only the latest public-private key pair remains valid. Older public keys are backed up and preserved.
+
 v1.09 Delete the default site's .pem file to avoid confusion. The default site will only generate a .pem certificate file after formally applying for a certificate.
+
 v1.05 Perform an overlay installation or execute `bash wnmp.sh remariadb`. First, create a full database backup at: /home/all_databases_backup_[time].sql.gz
+
 v1.04 Pure Cloud Storage Site Blocking.php File, Preventing Source Code Download
+
 v1.03 Optimize Nginx parameters to accelerate SSL certificate validation
+
 v1.02 Added --pcntl extension, compatible with workerman
+
 v1.01 Supports the latest Swoole version, e.g.6.2.0-dev . Installed and deployed on PHP 8.5. The official website and PECL do not yet support deployment on PHP 8.5, but WNMP does.
 
 
