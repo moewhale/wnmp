@@ -572,31 +572,7 @@ server{
         
     }
 
-    location = /webdav {
-        return 301 /webdav/;
-    }
-
-    location ^~ /webdav/ {
-        if ($server_port != 443) { return 403; }
-        set $domain $host;
-        if ($host ~* "^www\.(.+)$") {
-            set $domain $1;
-        }
-        set $site_root /home/wwwroot/$domain;
-        alias $site_root/;
-       
-        types { }
-
-        default_type application/octet-stream;
-        auth_basic "WebDAV Authentication";
-        auth_basic_user_file /home/passwd/.$host;
-        dav_methods PUT DELETE MKCOL COPY MOVE;
-        dav_ext_methods PROPFIND OPTIONS LOCK UNLOCK;
-        create_full_put_path on;
-        dav_access user:rw group:rw all:r;
-
-        dav_ext_lock zone=webdav_locks;
-    }
+   
     access_log off;
 }
 EOF
@@ -701,8 +677,8 @@ server{
         dav_ext_methods PROPFIND OPTIONS LOCK UNLOCK;
         create_full_put_path on;
         dav_access user:rw group:rw all:r;
-
         dav_ext_lock zone=webdav_locks;
+        
     }
     access_log off;
 }
@@ -1631,40 +1607,8 @@ echo -e "${GREEN}PHP path: $(command -v php || echo 'Not found')${NC}"
 PHP="/usr/local/php/bin/php"
 PHPIZE="/usr/local/php/bin/phpize"
 PHPCONFIG="/usr/local/php/bin/php-config"
-PECL="/usr/local/php/bin/pecl"
 
-pecl_build_from_source() {
 
-  local EXT="$1"; shift || true
-  local CONF_OPTS=(
-    --with-php-config="$PHPCONFIG"
-  )
-
-  /usr/local/php/bin/pecl -d allow_url_fopen=On download "$EXT" || {
-    echo "[${EXT}] pecl download failed, attempting to retrieve via curl..."
-    curl -fL -o "${EXT}.tgz" "https://pecl.php.net/get/${EXT}" || {
-      echo "[${EXT}] Failed to retrieve source code"; return 1; } 
-  }
-
-  local TGZ
-  TGZ="$(ls -t ${EXT}-*.tgz | head -n1)"
-  [ -n "${TGZ:-}" ] || { echo "[${EXT}] Source package not found"; return 1; }
-  rm -rf "${TGZ%.tgz}"
-  tar xf "$TGZ"
-  cd "${TGZ%.tgz}" || { echo "[${EXT}] Accessing the source code directory failed."; return 1; } 
-
-  $PHPIZE
-  ./configure "${CONF_OPTS[@]}"
-
-  if command -v JOBS >/dev/null 2>&1; then
-    make -j${JOBS}
-  else
-    make -j1
-  fi
-  make install
-  cd ..
-  echo "[${EXT}] Build completed"
-}
 
 if [ -f /root/.pearrc ] || [ -f /usr/local/php/etc/pear.conf ]; then
   echo -e "${RED}Old PEAR config found; removing to avoid PEAR/PECL errors...${NC}"
@@ -1775,7 +1719,7 @@ CONFIGURE_OPTS=(
   "--with-config-file-path=${PHP_ETC}"
   "--with-config-file-scan-dir=${PHP_CONF_D}"
   "--with-pear"
-  "--disable-phar"
+  "--enable-phar"
   "--disable-zts" 
   "--disable-rpath"
   "--disable-fileinfo"    
@@ -1870,6 +1814,7 @@ if [[ "$php_version" =~ ^8\.5\. ]]; then
 extension=swoole.so
 extension=inotify.so
 extension=redis.so
+extension=apcu.so
 [PHP]
 engine = On
 short_open_tag = Off
@@ -1931,6 +1876,13 @@ opcache.jit_buffer_size=64M
 opcache.save_comments=1
 opcache.enable_file_override=0
 
+[apcu]
+apc.enabled=1
+apc.shm_size=128M
+apc.entries_hint=262144
+apc.ttl=0
+apc.gc_ttl=3600
+apc.enable_cli=1
 
 EOF
 
@@ -1939,6 +1891,7 @@ else
 extension=swoole.so
 extension=inotify.so
 extension=redis.so
+extension=apcu.so
 zend_extension=opcache
 [PHP]
 engine = On
@@ -2001,7 +1954,13 @@ opcache.jit_buffer_size=64M
 opcache.save_comments=1
 opcache.enable_file_override=0
 
-
+[apcu]
+apc.enabled=1
+apc.shm_size=128M
+apc.entries_hint=262144
+apc.ttl=0
+apc.gc_ttl=3600
+apc.enable_cli=1
 EOF
 fi
 
@@ -2009,7 +1968,9 @@ fi
   systemctl enable php-fpm
   systemctl start php-fpm
   cd /root
-
+  curl -fL --output /tmp/pie.phar https://github.com/php/pie/releases/latest/download/pie.phar \
+  && mv /tmp/pie.phar /usr/local/php/bin/pie \
+  && chmod +x /usr/local/php/bin/pie
 
 pecl channel-update pecl.php.net
 
@@ -2027,8 +1988,9 @@ fi
   --enable-openssl  --enable-mysqlnd --enable-swoole-curl --enable-cares --enable-iouring --enable-zstd && \
   make && make install
   
-  pecl_build_from_source redis || echo -e "${RED}Warning:redis Installation Failed${NC}" 
-  pecl_build_from_source inotify || echo -e "${RED}Warning:inotify Installation Failed${NC}"
+  pie install phpredis/phpredis  || echo -e "${RED}Warning:redis Installation Failed${NC}" 
+  pie install arnaud-lb/inotify || echo -e "${RED}Warning:inotify Installation Failed${NC}"
+  pie install apcu/apcu || echo -e "${RED}Warning:apcu Installation Failed${NC}"
 else
   echo 'Do not install PHP'
 fi
