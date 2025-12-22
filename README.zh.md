@@ -32,6 +32,10 @@ WNMP 并不是“把 Nginx + PHP + MariaDB 打成容器”，而是为了在干�
 
 ## 更新记录
 
+v1.21 优化中国大陆网络下载软件安装包网络不稳定掉线问题
+
+v1.20 所有软件下载到/root/wnmp目录，覆盖安装检测存在软件压缩包直接解压安装，不再重新下载
+
 v1.16 PHP官方已停止维护pecl扩展安装器，改用pie扩展安装器安装C语言扩展。pie完整扩展列表：https://packagist.org/extensions
 
 v1.15 取消default函数，已默认申请Let's Encrypt IP证书保护，并生成NGINX BASIC AUTH 加固保护；可直接https://[ip]/phpmyadmin 访问数据库
@@ -95,7 +99,7 @@ v1.01 支持swoole最新版本 例如6.2.0-dev 安装部署在PHP8.5，官网和
 ## ⚙️ 安装方法
 
 ```bash
-apt install -y curl
+apt update && apt install -y curl
 curl -fL https://wnmp.org/zh/wnmp.sh -o wnmp.sh
 chmod +x wnmp.sh
 bash wnmp.sh
@@ -118,7 +122,6 @@ bash wnmp.sh
 | 仅执行内核/网络调优 | `bash wnmp.sh tool` |
 | 重启所有服务 | `bash wnmp.sh restart` |
 | 清理 | `bash wnmp.sh remove` / `bash wnmp.sh renginx` / `bash wnmp.sh rephp` / `bash wnmp.sh remariadb` |
-| WSL初始化 | `bash wnmp.sh wslinit` |
 ---
 
 ## 🌐 可选页脚标识
@@ -173,19 +176,32 @@ WNMP 的目标不是“替代宝塔”，而是提供一份**面向工程师的�
 
 Win+R 组合键打开运行输入框，输入cmd # 键盘组合键shift+ctrl+enter 进入管理员模式控制台。
 
-`wsl -l -o` # 查看是否能读取远程系统列表，如果能正常读取，表示wsl正常
+wsl -l -o # 查看是否能读取远程系统列表，如果能正常读取，表示wsl正常
 
-`wsl --install debian` # (开始安装debian13子系统，第一次执行命令会要求重启电脑，或提示未开启CPU虚拟化支持等，请根据提示操作)
+wsl --install debian --web-download # (开始安装debian13子系统，第一次执行命令会要求重启电脑，或提示未开启CPU虚拟化支持等，请根据提示操作)
 
 正常安装后会要求配置一个普通账号+密码，配置成功后直接：exit 退出子系统
 
+
 `wsl -d debian -u root` # 以root账号身份登录debian系统
+
+以Debian13为例，中国大陆需要切换系统更新源
+```bash
+cp /etc/apt/sources.list /etc/apt/sources.list.bak
+cat > /etc/apt/sources.list << EOF
+deb http://mirrors.aliyun.com/debian/ trixie main contrib non-free non-free-firmware
+deb http://mirrors.aliyun.com/debian/ trixie-updates main contrib non-free non-free-firmware
+deb http://mirrors.aliyun.com/debian-security/ trixie-security main contrib non-free non-free-firmware
+deb http://mirrors.aliyun.com/debian/ trixie-backports main contrib non-free non-free-firmware
+EOF
+```
+
 ```bash
 cd /root
 apt update && apt install -y curl
 curl -fL https://wnmp.org/zh/wnmp.sh -o wnmp.sh
 chmod +x wnmp.sh
-bash wnmp.sh wslinit
+bash wnmp.sh
 ```
 在此电脑任务地址栏定位打开C:\Users\[username]\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup # 请用windows登录的真实账号名代替[username]
 
