@@ -3,7 +3,7 @@
 # Copyright (C) 2025 wnmp.org
 # Website: https://wnmp.org
 # License: GNU General Public License v3.0 (GPLv3)
-# Version: 1.25
+# Version: 1.26
 
 set -euo pipefail
 
@@ -53,7 +53,7 @@ green  " [init] WNMP one-click installer started"
 green  " [init] https://wnmp.org"
 green  " [init] Logs saved to: ${LOGFILE}"
 green  " [init] Start time: $(date '+%F %T')"
-green  " [init] Version: 1.25"
+green  " [init] Version: 1.26"
 green  "============================================================"
 echo
 sleep 1
@@ -2230,7 +2230,7 @@ apt --fix-broken install -y
 apt autoremove -y
 apt update
 apt install -y libc-ares-dev apache2-utils git liblzma-dev libedit-dev libncurses5-dev libnuma-dev libaio-dev libsnappy-dev libicu-dev liblz4-dev screen build-essential liburing-dev liburing2 \
-  libzstd-dev wget curl m4 autoconf re2c pkg-config libxml2-dev libcurl4-openssl-dev \
+  libzstd-dev wget curl m4 autoconf re2c pkg-config libxml2-dev libsodium-dev libcurl4-openssl-dev \
   libbz2-dev openssl libssl-dev libtidy-dev libxslt1-dev libsqlite3-dev zlib1g-dev \
   libpng-dev libjpeg-dev libwebp-dev libonig-dev libzip-dev libpcre2-8-0 libpcre2-dev \
   cmake bison libncurses-dev libfreetype-dev unzip
@@ -2270,10 +2270,12 @@ CONFIGURE_OPTS=(
   "--with-config-file-path=${PHP_ETC}"
   "--with-config-file-scan-dir=${PHP_CONF_D}"
   "--with-pear"
+  "--enable-fileinfo"
+  "--with-sodium"
+  "--enable-soap"
   "--enable-phar"
   "--disable-zts" 
-  "--disable-rpath"
-  "--disable-fileinfo"    
+  "--disable-rpath"    
   "--enable-exif"
   "--enable-intl"
   "--enable-fpm"
