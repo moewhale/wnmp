@@ -3552,7 +3552,6 @@ auto_optimize_services() {
   echo "================= Optimization Complete ================="
 }
 
-cp "${SCRIPT_PATH}" /usr/local/bin/wnmp && chmod +x /usr/local/bin/wnmp
 
 auto_optimize_services
 
