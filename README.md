@@ -37,6 +37,8 @@ Therefore, WNMP is recommended for use on KVM virtual machines, cloud servers, o
 
 ## Update Log
 
+v1.28 Added global variable wnmp; all commands can now be executed from any directory
+
 v1.26 Enables built-in PHP support for fileinfo, soap, and sodium extensions.
 
 v1.20 All software downloads are saved to the /root/sourcewnmp directory. During installation, existing software packages are detected and extracted directly for installation, eliminating the need for re-downloading.
@@ -53,7 +55,7 @@ v1.10 Modify SSH key logic: When multiple SSH keys are requested, only the lates
 
 v1.09 Delete the default site's .pem file to avoid confusion. The default site will only generate a .pem certificate file after formally applying for a certificate.
 
-v1.05 Perform an overlay installation or execute `bash wnmp.sh remariadb`. First, create a full database backup at: /home/all_databases_backup_[time].sql.gz
+v1.05 Perform an overlay installation or execute `wnmp remariadb`. First, create a full database backup at: /home/all_databases_backup_[time].sql.gz
 
 v1.04 Pure Cloud Storage Site Blocking.php File, Preventing Source Code Download
 
@@ -119,18 +121,18 @@ Please execute commands using the root account on a completely clean system.
 
 ---
 
-## 💡 Common Commands
+## 💡 Common Commands - Download and run bash wnmp.sh. The following commands can be executed from any directory.
 
 | Purpose | Command |
 |----------|----------|
-| Normal Installation | `bash wnmp.sh` |
-| Check Status | `bash wnmp.sh status` |
-| SSH Key Login | `bash wnmp.sh sshkey` |
-| Add WebDAV Account | `bash wnmp.sh webdav` |
-| Create New Virtual Host (with SSL) | `bash wnmp.sh vhost` |
-| Kernel/Network Optimization Only | `bash wnmp.sh tool` #Verification command: ulimit -n && ulimit -u && sysctl --system | 
-| Restart All Services | `bash wnmp.sh restart` |
-| Cleanup | `bash wnmp.sh remove` / `bash wnmp.sh renginx` / `bash wnmp.sh rephp` / `bash wnmp.sh remariadb` |
+| Normal Installation | `wnmp` |
+| Check Status | `wnmp status` |
+| SSH Key Login | `wnmp sshkey` |
+| Add WebDAV Account | `wnmp webdav` |
+| Create New Virtual Host (with SSL) | `wnmp vhost` |
+| Kernel/Network Optimization Only | `wnmp tool` #Verification command: ulimit -n && ulimit -u && sysctl --system | 
+| Restart All Services | `wnmp restart` |
+| Cleanup | `wnmp remove` / `wnmp renginx` / `wnmp rephp` / `wnmp remariadb` |
 ---
 
 ## 🌐 Optional Footer Badge
@@ -141,7 +143,7 @@ Please execute commands using the root account on a completely clean system.
 
 ---
 Does it support one-click generation of SSH login keys?
-Yes. Run bash wnmp.sh sshkey
+Yes. Run wnmp sshkey
 
 =====================================================================
 
@@ -242,7 +244,7 @@ Run the following command in an administrator PowerShell window to configure Hyp
 
 Restart your computer again. You can now log into the subsystem using the same LAN IP address as your local Windows system. Enter `ipconfig` in the cmd console to view your local LAN IP.
 
-After restarting the computer, use an SSH client tool to access the subsystem and directly execute bash wnmp.sh to begin deploying the web environment.
+After restarting the computer, use an SSH client tool to access the subsystem and directly execute wnmp to begin deploying the web environment.
 
 ## 📖 License
 
