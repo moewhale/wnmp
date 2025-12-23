@@ -124,7 +124,7 @@ Please execute commands using the root account on a completely clean system.
 | SSH Key Login | `bash wnmp.sh sshkey` |
 | Add WebDAV Account | `bash wnmp.sh webdav` |
 | Create New Virtual Host (with SSL) | `bash wnmp.sh vhost` |
-| Kernel/Network Optimization Only | `bash wnmp.sh tool` |
+| Kernel/Network Optimization Only | `bash wnmp.sh tool` | #Verification command: ulimit -n && ulimit -u && sysctl --system
 | Restart All Services | `bash wnmp.sh restart` |
 | Cleanup | `bash wnmp.sh remove` / `bash wnmp.sh renginx` / `bash wnmp.sh rephp` / `bash wnmp.sh remariadb` |
 ---
