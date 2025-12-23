@@ -34,6 +34,8 @@ WNMP 并不是“把 Nginx + PHP + MariaDB 打成容器”，而是为了在干�
 
 ## 更新记录
 
+v1.26 php开启fileinfo,soap,sodium内置组件支持
+
 v1.21 优化中国大陆网络下载软件安装包网络不稳定掉线问题
 
 v1.20 所有软件下载到/root/sourcewnmp目录，覆盖安装检测存在软件压缩包直接解压安装，不再重新下载
