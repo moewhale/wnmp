@@ -3,7 +3,7 @@
 # Copyright (C) 2025 wnmp.org
 # Website: https://wnmp.org
 # License: GNU General Public License v3.0 (GPLv3)
-# Version: 1.23
+# Version: 1.24
 
 set -euo pipefail
 
@@ -39,8 +39,7 @@ if [[ -t 1 && -z "${WNMP_UNDER_SCRIPT:-}" ]]; then
     echo "[WARN] 'script' not found; continuing without logging to file."
   fi
 fi
-
-WNMPDIR="/root/wnmp"
+WNMPDIR="/root/sourcewnmp"
 mkdir -p "$WNMPDIR"
 
 red()    { echo -e "\033[31m$*\033[0m"; }
@@ -54,7 +53,7 @@ green  " [init] WNMP one-click installer started"
 green  " [init] https://wnmp.org"
 green  " [init] Logs saved to: ${LOGFILE}"
 green  " [init] Start time: $(date '+%F %T')"
-green  " [init] Version: 1.23"
+green  " [init] Version: 1.24"
 green  "============================================================"
 echo
 sleep 1
@@ -116,24 +115,7 @@ restart() {
 }
 echo "[setup] args: $*"
 
-for arg in "$@"; do
-   case "${arg}" in
-     tool) KERNEL_TUNE_ONLY=1 ;;
-     vhost) vhost; exit 0 ;;
-     -h|--help|help) usage; exit 0 ;;
-     restart) restart; exit 0 ;;
-     status) status; exit 0 ;;
-     webdav) webdav; exit 0 ;;
-     sshkey) sshkey; exit 0 ;;
-     remove) remove; exit 0 ;;
-     renginx) renginx; exit 0 ;;
-     rephp) rephp; exit 0 ;;
-     remariadb) remariadb; exit 0 ;;
-     fixsshd) fixsshd; exit 0 ;;
-     "") ;;
-     *) echo "[setup] Unknown parameter: ${arg}"; usage; exit 1 ;;
-   esac
- done
+
 
 download_with_mirrors() {
   local url="$1"
@@ -554,6 +536,11 @@ detect_cn_ip() {
   return 0
 }
 
+
+is_lan
+detect_cn_ip || true
+
+
 aptinit() {
 
     echo "Current IP: $PUBLIC_IP, IS_CN=$IS_CN"
@@ -692,15 +679,16 @@ EOF
 
 
 enable_proxy() {
-  local proxy="http://51.178.43.90:3128"
 
-  export HTTP_PROXY="$proxy"
-  export HTTPS_PROXY="$proxy"
-
-
+  local PROXY_USER="wnmp"
+  local PROXY_PASS="passwdwnmp"
+  local PROXY_HOST="51.178.43.90"
+  local PROXY_PORT="3128"
+  unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
+  export HTTP_PROXY="http://${PROXY_USER}:${PROXY_PASS}@${PROXY_HOST}:${PROXY_PORT}"
+  export HTTPS_PROXY="http://${PROXY_USER}:${PROXY_PASS}@${PROXY_HOST}:${PROXY_PORT}"
   export NO_PROXY="127.0.0.1,localhost,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
-
-  echo "[proxy] Global proxy enabled: $proxy"
+  echo "[proxy] Global proxy enabled（Squid + auth）"
 }
 
 disable_proxy() {
@@ -710,23 +698,6 @@ disable_proxy() {
 proxy_healthcheck() {
   curl -fsS --max-time 5 https://github.com >/dev/null
 }
-
-is_lan
-detect_cn_ip || true
-
-if [[ "$IS_CN" -eq 1 ]]; then
-  enable_proxy
-  if ! proxy_healthcheck; then
-    echo "[proxy][WARN] The proxy is unavailable and has been automatically disabled."
-    disable_proxy
-  fi
-fi
-
-aptinit
-
-
-
-
 
 
 webdav() {
@@ -1294,8 +1265,6 @@ EOF
 
 
 
-
-
 purge_nginx() {
   echo "Purging NGINX (if any)..."
   systemctl stop nginx 2>/dev/null || true
@@ -1452,13 +1421,13 @@ sshkey() {
  
   echo
   echo "====================================================================="
-  echo "⚠️  Important Reminder: Before confirming that you have saved the private key to your own computer"
-  echo "⚠️  Do not disconnect the current SSH session, or you will be unable to log back into the server!"
+  echo "⚠️  IMPORTANT WARNING: Before you confirm that you have saved the private key to your own computer"
+  echo "⚠️  Do NOT disconnect the current SSH session, otherwise you will not be able to log in to the server again!"
   echo "====================================================================="
   echo
-  read -rp "Should root key-only login be continued and enabled? (Enter yes to confirm): " ans
+  read -rp "Proceed to enable root-only key authentication? (Enter yes to confirm): " ans
   if [[ "${ans,,}" != "yes" ]]; then
-    echo "[safe] The operation has been canceled. No changes were made."
+    echo "[safe] Operation cancelled. No changes made."
     return 0
   fi
 
@@ -1469,7 +1438,7 @@ sshkey() {
   fi
   [[ -z "${SSHD_BIN}" && -x /sbin/sshd ]] && SSHD_BIN="/sbin/sshd"
   if [[ -z "${SSHD_BIN}" ]]; then
-    echo "[safe][ERROR] The sshd executable file was not found. Please install it first. openssh-server。"
+    echo "[safe][ERROR] sshd executable not found, please install openssh-server first."
     return 1
   fi
 
@@ -1490,13 +1459,13 @@ sshkey() {
   local OVR_FILE="${OVR_DIR}/zzz-root-keys-only.conf"
   local OVR_BACKUP_DIR="/etc/ssh/sshd_config.d.bak-${NOW}"
 
-  echo "[safe] Configuring [Key-Only Login] for the root user..."
+  echo "[safe] Configuring root user for key-only authentication..."
 
 
   if grep -Eq '^[[:space:]]*ClientAliveInterval[[:space:]]+[0-9]+[[:space:]]+[^#]+' "$SSHD_MAIN"; then
     cp -a "$SSHD_MAIN" "${SSHD_MAIN}.prelint-${NOW}"
     sed -i -E 's/^([[:space:]]*ClientAliveInterval)[[:space:]]+[0-9]+.*/\1 120/' "$SSHD_MAIN"
-    echo "Configuring [key-only login] for root user [safe] Fixed invalid trailing note: ClientAliveInterval line normalized to 'ClientAliveInterval 120'"
+    echo "[safe] Fixed invalid trailing characters: ClientAliveInterval line normalized to 'ClientAliveInterval 120'"
   fi
 
 
@@ -1506,16 +1475,16 @@ sshkey() {
 
 
   if ! ls /etc/ssh/ssh_host_*key >/dev/null 2>&1; then
-    echo "[safe] HostKeys not found. Generating...（ssh-keygen -A）..."
+    echo "[safe] No host HostKeys found, generating (ssh-keygen -A)..."
     ssh-keygen -A
   fi
 
 
   local PASSPHRASE_OPT=""
   echo
-  read -rp "Should you add password protection for the new key (requiring this password to be entered during login)?[y/N]: " setpass
+  read -rp "Add passphrase protection to the new key (you will need to enter it when logging in)? [y/N]: " setpass
   if [[ "${setpass,,}" =~ ^(y|yes)$ ]]; then
-    echo "[safe] A passphrase will be set for the new key...."
+    echo "[safe] Will set passphrase for the new key..."
     PASSPHRASE_OPT="-N"
   else
     PASSPHRASE_OPT="-N \"\""
@@ -1523,12 +1492,12 @@ sshkey() {
 
  
   if [[ -f "${PRIV_KEY}" || -f "${PUB_KEY}" ]]; then
-    echo "[safe] Detected existing root key pair, backing up...."
+    echo "[safe] Existing root key pair detected, backing up..."
     [[ -f "${PRIV_KEY}" ]] && mv -f "${PRIV_KEY}" "${PRIV_KEY}.bak-${NOW}"
     [[ -f "${PUB_KEY}"  ]] && mv -f "${PUB_KEY}"  "${PUB_KEY}.bak-${NOW}"
   fi
 
-  echo "[safe] Generate an ED25519 key pair..."
+  echo "[safe] Generating ED25519 key pair..."
   if [[ "${PASSPHRASE_OPT}" == "-N" ]]; then
     ssh-keygen -t ed25519 -a 100 -C "${COMMENT}" -f "${PRIV_KEY}"
   else
@@ -1553,13 +1522,13 @@ NEW_KEY_B64=$(awk '{print $2}' "${PUB_KEY}" | tr -d '
 NEW_KEY_LINE="${NEW_KEY_TYPE} ${NEW_KEY_B64} ${COMMENT}"
 
 if [[ -z "${NEW_KEY_TYPE}" || -z "${NEW_KEY_B64}" ]]; then
-  echo "[safe][ERROR] Unable to parse the generated public key. Please check. ${PUB_KEY} Content."
+  echo "[safe][ERROR] Failed to parse generated public key, please check ${PUB_KEY} content."
   return 1
 fi
 
 if [[ -f "${AUTH_KEYS}" ]]; then
   cp -a "${AUTH_KEYS}" "${AUTH_KEYS}.bak-${NOW}"
-  echo "[safe] The original authorization file has been backed up as ${AUTH_KEYS}.bak-${NOW}"
+  echo "[safe] Backed up original authorized keys file to ${AUTH_KEYS}.bak-${NOW}"
 else
   touch "${AUTH_KEYS}"
 fi
@@ -1574,13 +1543,13 @@ chmod 600 "${AUTH_KEYS}.tmp"
 chown root:root "${AUTH_KEYS}.tmp"
 mv -f "${AUTH_KEYS}.tmp" "${AUTH_KEYS}"
 
-echo "[safe] Authorization file updated: Only the most recently generated public key is retained.（${AUTH_KEYS}）。The old public key has been backed up to ${AUTH_KEYS}.bak-${NOW} 。"
+echo "[safe] Authorized keys file updated: only the latest generated public key is retained (${AUTH_KEYS}). Old public keys have been backed up to ${AUTH_KEYS}.bak-${NOW}."
 
 find "${SSH_DIR}" -maxdepth 1 -type f \( -name "${KEY_NAME}.bak-*" -o -name "${KEY_NAME}.pub.bak-*" -o -name "${KEY_NAME}.pub.bak-*" \) -print -exec rm -f {} \; || true
 
 find "${SSH_DIR}" -maxdepth 1 -type f -name "${KEY_NAME}.*.bak-*" -print -exec rm -f {} \; || true
 
-echo "[safe] Deleted historical private/public key backups from this directory (if any existed)."
+echo "[safe] Deleted historical private/public key backups in this directory (if any)."
 
 chmod 700 "${SSH_DIR}"
 chmod 600 "${PRIV_KEY}"
@@ -1589,7 +1558,7 @@ chown root:root "${PRIV_KEY}" "${PUB_KEY}"
 
 
   cp -a "${SSHD_MAIN}" "${SSHD_BAK}"
-  echo "[safe] Master configuration has been backed up:${SSHD_BAK}"
+  echo "[safe] Backed up main configuration: ${SSHD_BAK}"
 
   mkdir -p "${OVR_DIR}"
   if [ "$(find "${OVR_DIR}" -type f | wc -l)" -gt 0 ]; then
@@ -1615,10 +1584,10 @@ EOF
   grep -Eq '^[[:space:]]*Include[[:space:]]+/etc/ssh/sshd_config\.d/\*\.conf' "$SSHD_MAIN" || sed -i '1i Include /etc/ssh/sshd_config.d/*.conf' "$SSHD_MAIN"
 
 
-  echo "[safe] Check sshd configuration syntax (${SSHD_BIN} -t)..."
+  echo "[safe] Checking sshd configuration syntax (${SSHD_BIN} -t)..."
   if ! err="$("${SSHD_BIN}" -t 2>&1)"; then
-    echo "[safe][ERROR] sshd -t Failure:"; echo "$err"
-    echo "[safe] Rollback in progress..."
+    echo "[safe][ERROR] sshd -t failed:"; echo "$err"
+    echo "[safe] Rolling back changes..."
     rm -f "${OVR_FILE}" || true
     mv -f "${SSHD_BAK}" "${SSHD_MAIN}"
     if [ -d "${OVR_BACKUP_DIR}" ]; then
@@ -1641,22 +1610,22 @@ EOF
 
   echo
   echo "[safe] Public key fingerprint (SHA256):"
-  ssh-keygen -lf "${PUB_KEY}" -E sha256 | awk ‘{print " - "$0}’
+  ssh-keygen -lf "${PUB_KEY}" -E sha256 | awk '{print " - "$0}'
   echo
   echo "====================================================================="
-  echo "✅ Root user successfully enabled [key-based login only]"
+  echo "✅ Successfully enabled root user for KEY-ONLY authentication"
   echo
-  echo "🔐 Important reminder: Do NOT copy/paste private key content."
-  echo "🔐 Private keys must be transferred as files; otherwise, they are highly susceptible to corruption and may prevent login."
+  echo "🔐 Important Note: DO NOT copy/paste the private key content."
+  echo "🔐 The private key must be transferred as a FILE, otherwise it is easily corrupted and will result in login failure."
   echo
-  echo "➡️ Recommended method: Download the private key file using SCP:"
+  echo "➡️  Recommended method: Download private key file using SCP:"
   echo
   echo "   scp -P <SSH port> root@<server IP>:/root/.ssh/${KEY_NAME} ~/.ssh/${KEY_NAME}"
   echo
-  echo "   After download, set permissions:"
+  echo "   Set permissions after download:"
   echo "   chmod 600 ~/.ssh/${KEY_NAME}"
   echo
-  echo "➡️  Alternatively, use an SFTP tool (WinSCP / FileZilla / Xshell file transfer)."
+  echo "➡️  Or download using SFTP tools (WinSCP / FileZilla / Xshell file transfer)."
   echo
   echo "====================================================================="
   echo
@@ -1665,46 +1634,26 @@ EOF
   local SERVER_IP
   SERVER_IP="$(ip -o -4 addr show | awk '!/ lo / && /inet /{gsub(/\/.*/,"",$4); print $4; exit}')"
   echo "[safe] Test command: ssh -i ~/.ssh/${KEY_NAME} root@<SERVER>"
-  [[ -n "${SERVER_IP:-}" ]] && echo "      Current Server IP：${SERVER_IP}"
+  [[ -n "${SERVER_IP:-}" ]] && echo "      Current server IP: ${SERVER_IP}"
   echo
-  echo "[safe] Enabled: Only root is permitted to log in using keys."
-  echo "[safe] To revert: mv -f ${SSHD_BAK} ${SSHD_MAIN} && systemctl restart ssh"
+  echo "[safe] Enabled: Only root can log in using key authentication."
+  echo "[safe] To rollback: mv -f ${SSHD_BAK} ${SSHD_MAIN} && systemctl restart ssh"
 
   echo
-  echo "⚠️  Advanced Options (Not Recommended)"
-  echo "⚠️  Use only when [unable to download private key files via SCP/SFTP]."
-  echo "⚠️  Copying and pasting private key content is highly susceptible to corruption due to line breaks, encoding issues, or hidden characters."
+  echo "⚠️  Advanced Option (not recommended)"
+  echo "⚠️  Use only if you CANNOT download the private key file via SCP/SFTP"
+  echo "⚠️  Copying/pasting private key content may corrupt it due to line breaks, encoding, or hidden characters"
   echo
-  read -rp "Should the private key still be exported as a string? (For advanced users only)[y/N]: " export_string </dev/tty
+  read -rp "Still export private key as a string? (for advanced users only) [y/N]: " export_string </dev/tty
 
   if [[ "${export_string,,}" =~ ^(y|yes)$ ]]; then
     echo
     cat "${PRIV_KEY}"
     echo
-    echo "⚠️  Note: Do not use editors such as Notepad that automatically convert line breaks or encoding when saving private key files."
+    echo "⚠️  Note: Do NOT use Notepad or similar editors that auto-convert line breaks/encoding to save the private key file"
   fi
 
 }
-
-
-
-
-
-
-
-if [[ "$IS_LAN" -eq 1 ]]; then
-    red "[env] This is an internal network environment; certificate requests will be skipped."
-    read -rp "是否强制申请证书？[y/N] " ans
-    ans="${ans:-N}"
-    if [[ "$ans" =~ [Yy]$ ]]; then
-      green "[env] Forced certificate application has been selected."
-      IS_LAN=0
-    else
-      red "[env] Keep skipping certificate requests."
-    fi
-  else
-    green "[env] Public network environment detected; certificate application can proceed normally."
-  fi
 
 
 MYSQL_PASS='needpasswd'
@@ -1754,6 +1703,197 @@ if grep -qi "microsoft" /proc/version 2>/dev/null; then
   fi
 
 fi
+
+
+install_mroonga() {
+  
+  local _err=0
+  local mariadb_version PLUGINDIR SRC_SO DST_SO TMP_SO
+  local GROONGA_TAR="$WNMPDIR/groonga.tar.gz"
+  local MROONGA_TAR="$WNMPDIR/mroonga.tar.gz"
+  local GROONGA_SRC="$WNMPDIR/groonga"
+  local GROONGA_BUILD="$WNMPDIR/groonga_build"
+  local MROONGA_SRC="$WNMPDIR/mroonga"
+  local MROONGA_BUILD="$WNMPDIR/mroonga_build"
+  local MYCNF="/etc/my.cnf"
+
+  echo "[mroonga] WNMPDIR=$WNMPDIR"
+
+  cd "$WNMPDIR" || { echo "[mroonga][ERROR] cd $WNMPDIR failed"; return 1; }
+
+  echo "[mroonga] purge old groonga packages..."
+  apt remove --purge -y 'groonga*' 'libgroonga*' || true
+  apt -f install -y || true
+  apt autoremove -y || true
+  apt clean || true
+  rm -rf "$GROONGA_BUILD"
+  echo "[mroonga] remove old /usr/local groonga/mroonga..."
+  rm -rf /usr/local/bin/groonga \
+            /usr/local/bin/groonga-* \
+            /usr/local/lib/libgroonga* \
+            /usr/local/lib/groonga \
+            /usr/local/include/groonga \
+            /usr/local/share/groonga
+
+  rm -rf /usr/local/bin/mroonga \
+            /usr/local/bin/mroonga-* \
+            /usr/local/lib/libmroonga* \
+            /usr/local/lib/mroonga \
+            /usr/local/include/mroonga \
+            /usr/local/share/mroonga
+
+  rm -f /etc/ld.so.conf.d/groonga.conf
+  rm -f /etc/ld.so.conf.d/mroonga.conf
+  ldconfig || true
+
+  echo "[mroonga] install build deps..."
+  apt-get update -y || true
+
+  apt-get install -y \
+    build-essential cmake ninja-build pkg-config \
+    liblz4-dev libzstd-dev libxxhash-dev \
+    libevent-dev libpcre2-dev libonig-dev libmsgpack-dev \
+    libmecab-dev mecab-ipadic-utf8 \
+    libssl-dev zlib1g-dev || { echo "[mroonga][ERROR] build deps install failed"; return 1; }
+
+  cd "$WNMPDIR" || return 1
+
+  echo "[mroonga] fetch groonga source..."
+  if [ ! -f "$GROONGA_TAR" ]; then
+    rm -rf "$GROONGA_SRC"
+    download_with_mirrors "https://packages.groonga.org/source/groonga/groonga-latest.tar.gz" "$GROONGA_TAR" || {
+      echo "[mroonga][ERROR] groonga download failed"; return 1; }
+    mkdir -p "$GROONGA_SRC"
+  else
+    mkdir -p "$GROONGA_SRC"
+  fi
+
+  echo "[mroonga] extract groonga..."
+  rm -rf "$GROONGA_SRC"/*
+  tar -zxvf "$GROONGA_TAR" --strip-components=1 -C "$GROONGA_SRC" || {
+    echo "[mroonga][ERROR] groonga extract failed"; return 1; }
+
+  echo "[mroonga] build & install groonga..."
+  cd "$GROONGA_SRC" || return 1
+  rm -rf "$GROONGA_BUILD"
+  cmake -S . -B "$GROONGA_BUILD" -G Ninja \
+    -DGRN_WITH_MRUBY=OFF \
+    -DGRN_WITH_APACHE_ARROW=OFF \
+    --preset=release-maximum || { echo "[mroonga][ERROR] groonga cmake failed"; return 1; }
+
+  cmake --build "$GROONGA_BUILD" -j"$(nproc)" || { echo "[mroonga][ERROR] groonga build failed"; return 1; }
+  cmake --install "$GROONGA_BUILD" || { echo "[mroonga][ERROR] groonga install failed"; return 1; }
+  ldconfig || true
+
+  if command -v groonga >/dev/null 2>&1; then
+    groonga --version || true
+  else
+    echo "[mroonga][WARN] groonga binary not found in PATH (maybe /usr/local/bin not in PATH)"
+  fi
+
+  cd "$WNMPDIR" || return 1
+
+  echo "[mroonga] install groonga extra packages..."
+ 
+  apt install -y groonga-token-filter-stem groonga-tokenizer-mecab libgroonga-dev groonga-normalizer-mysql || {
+    echo "[mroonga][WARN] apt groonga extra packages install failed (continue)"; }
+
+  echo "[mroonga] fetch mroonga source..."
+  if [ ! -f "$MROONGA_TAR" ]; then
+    rm -rf "$MROONGA_SRC"
+    download_with_mirrors "https://packages.groonga.org/source/mroonga/mroonga-latest.tar.gz" "$MROONGA_TAR" || {
+      echo "[mroonga][ERROR] mroonga download failed"; return 1; }
+    mkdir -p "$MROONGA_SRC"
+  else
+    mkdir -p "$MROONGA_SRC"
+  fi
+
+  echo "[mroonga] extract mroonga..."
+  rm -rf "$MROONGA_SRC"/*
+  tar -zxvf "$MROONGA_TAR" --strip-components=1 -C "$MROONGA_SRC" || {
+    echo "[mroonga][ERROR] mroonga extract failed"; return 1; }
+
+  echo "[mroonga] build & install mroonga..."
+  cd "$MROONGA_SRC" || return 1
+
+  mariadb_version=$(/usr/local/mariadb/bin/mysql_config --version 2>/dev/null)
+  if [ -z "$mariadb_version" ]; then
+    echo "[mroonga][ERROR] cannot get mariadb version by /usr/local/mariadb/bin/mysql_config"
+    return 1
+  fi
+
+  local GRN_LIB="/usr/lib/x86_64-linux-gnu/libgroonga.so"
+  if [ ! -e "$GRN_LIB" ]; then
+    GRN_LIB="/usr/local/lib/libgroonga.so"
+  fi
+  if [ ! -e "$GRN_LIB" ]; then
+    echo "[mroonga][ERROR] libgroonga.so not found in /usr/lib or /usr/local/lib"
+    return 1
+  fi
+
+  rm -rf "$MROONGA_BUILD"
+  cmake \
+    -S . \
+    -B "$MROONGA_BUILD" \
+    -GNinja \
+    -DGRN_LIBRARIES="$GRN_LIB" \
+    -DMRN_DEFAULT_TOKENIZER=TokenBigramSplitSymbolAlphaDigit \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr/local/mroonga \
+    -DMYSQL_BUILD_DIR="$WNMPDIR/mariadb-$mariadb_version/build" \
+    -DMYSQL_CONFIG=/usr/local/mariadb/bin/mysql_config \
+    -DMYSQL_SOURCE_DIR="$WNMPDIR/mariadb-$mariadb_version" || {
+      echo "[mroonga][ERROR] mroonga cmake failed"; return 1; }
+
+  cmake --build "$MROONGA_BUILD" -j"$(nproc)" || { echo "[mroonga][ERROR] mroonga build failed"; return 1; }
+  cmake --install "$MROONGA_BUILD" || { echo "[mroonga][ERROR] mroonga install failed"; return 1; }
+
+  echo "[mroonga] run install.sql..."
+  /usr/local/mariadb/bin/mysql -u root < /usr/local/mroonga/share/mroonga/install.sql || {
+    echo "[mroonga][WARN] install.sql failed (continue to force-install plugin)"; }
+
+  echo "[mroonga] install ha_mroonga.so into MariaDB plugin_dir (atomic)..."
+  PLUGINDIR=$(/usr/local/mariadb/bin/mysql_config --plugindir 2>/dev/null)
+  
+  SRC_SO="$MROONGA_BUILD/ha_mroonga.so"
+
+  if [ ! -s "$SRC_SO" ]; then
+    SRC_SO="$(find $MROONGA_BUILD -name ha_mroonga.so -type f -size +10k 2>/dev/null | head -n 1)"
+  fi
+  if [ ! -s "${SRC_SO:-}" ]; then
+    echo "[mroonga][ERROR] built ha_mroonga.so not found under $MROONGA_BUILD"
+    return 1
+  fi
+
+  DST_SO="$PLUGINDIR/ha_mroonga.so"
+  TMP_SO="$DST_SO.tmp.$$"
+  cp -f "$SRC_SO" "$TMP_SO" || { echo "[mroonga][ERROR] copy temp ha_mroonga.so failed"; return 1; }
+  sync || true
+  mv -f "$TMP_SO" "$DST_SO" || { echo "[mroonga][ERROR] move ha_mroonga.so failed"; return 1; }
+  chmod 644 "$DST_SO" || true
+
+  echo "[mroonga] ensure ldconfig paths..."
+  cat >/etc/ld.so.conf.d/groonga.conf <<'EOF'
+/usr/lib/x86_64-linux-gnu
+/usr/local/lib
+EOF
+  ldconfig || true
+  systemctl restart mariadb || true
+  cd "$WNMPDIR" || true
+
+  echo "[mroonga] cleanup groonga/apache-arrow apt sources..."
+  rm -f /etc/apt/sources.list.d/apache-arrow*.list /etc/apt/sources.list.d/apache-arrow*.sources
+  rm -f /etc/apt/sources.list.d/groonga*.list /etc/apt/sources.list.d/groonga*.sources
+  rm -f /usr/share/keyrings/apache-arrow-archive-keyring.gpg
+  rm -f /usr/share/keyrings/groonga-archive-keyring.gpg
+  rm -f /etc/apt/trusted.gpg.d/apache-arrow*.gpg /etc/apt/trusted.gpg.d/groonga*.gpg
+  rm -f /etc/apt/preferences.d/groonga.pref
+  apt-get update || true
+
+  echo "[mroonga][OK] install_mroonga finished."
+  return 0
+}
+
 
 
 wnmp_limits_tune() {
@@ -1942,6 +2082,49 @@ ensure_user() {
 }
 
 
+
+
+for arg in "$@"; do
+   case "${arg}" in
+     tool) KERNEL_TUNE_ONLY=1 ;;
+     vhost) vhost; exit 0 ;;
+     -h|--help|help) usage; exit 0 ;;
+     restart) restart; exit 0 ;;
+     status) status; exit 0 ;;
+     webdav) webdav; exit 0 ;;
+     sshkey) sshkey; exit 0 ;;
+     remove) remove; exit 0 ;;
+     renginx) renginx; exit 0 ;;
+     rephp) rephp; exit 0 ;;
+     remariadb) remariadb; exit 0 ;;
+     fixsshd) fixsshd; exit 0 ;;
+     "") ;;
+     *) echo "[setup] Unknown parameter: ${arg}"; usage; exit 1 ;;
+   esac
+ done
+
+
+
+if [[ "$IS_CN" -eq 1 ]]; then
+  enable_proxy
+  if ! proxy_healthcheck; then
+    echo "[proxy][WARN] The proxy is unavailable and has been automatically disabled."
+    disable_proxy
+  fi
+fi
+
+aptinit
+
+
+
+
+
+
+
+
+
+
+
 install -m 0644 /dev/stdin /etc/profile.d/wnmp-path.sh <<'EOF'
 # WNMP: global PATH for login/interactive shells
 export PATH="/usr/local/php/bin:/usr/local/mariadb/bin:${PATH}"
@@ -2028,6 +2211,19 @@ if [ "$mariadb_version" != "0" ]; then
   MYSQL_PASS=${MYSQL_PASS:-needpasswd}
 fi
 read -rp "Should NGINX be installed?(y/n): " choosenginx
+if [[ "$IS_LAN" -eq 1 ]]; then
+    red "[env] This is an internal network environment; certificate requests will be skipped."
+    read -rp "Is it mandatory to apply for the certificate?[y/N] " ans
+    ans="${ans:-N}"
+    if [[ "$ans" =~ [Yy]$ ]]; then
+      green "[env] Forced certificate application has been selected."
+      IS_LAN=0
+    else
+      red "[env] Keep skipping certificate requests."
+    fi
+  else
+    green "[env] Public network environment detected; certificate application can proceed normally."
+  fi
 
 
 apt --fix-broken install -y
@@ -3202,99 +3398,7 @@ SQL
     chown -R www:www /home/wwwroot
   
   cd "$WNMPDIR"
-
-apt remove --purge -y 'groonga*' 'libgroonga*'
-apt -f install -y
-apt autoremove -y
-apt clean
-rm -rf /usr/local/bin/groonga \
-            /usr/local/bin/groonga-* \
-            /usr/local/lib/libgroonga* \
-            /usr/local/lib/groonga \
-            /usr/local/include/groonga \
-            /usr/local/share/groonga
-
-rm -rf /usr/local/bin/mroonga \
-            /usr/local/bin/mroonga-* \
-            /usr/local/lib/libmroonga* \
-            /usr/local/lib/mroonga \
-            /usr/local/include/mroonga \
-            /usr/local/share/mroonga
-rm -f /etc/ld.so.conf.d/groonga.conf
-rm -f /etc/ld.so.conf.d/mroonga.conf
-ldconfig
-
-apt-get install -y \
-  build-essential cmake ninja-build pkg-config \
-  liblz4-dev libzstd-dev libxxhash-dev \
-  libevent-dev libpcre2-dev libonig-dev libmsgpack-dev \
-  libmecab-dev mecab-ipadic-utf8 \
-  libssl-dev zlib1g-dev
-
-   cd "$WNMPDIR"
-
-  if [ ! -f "$WNMPDIR/groonga.tar.gz" ]; then
-    rm -rf groonga
-    download_with_mirrors "https://packages.groonga.org/source/groonga/groonga-latest.tar.gz"  "$WNMPDIR/groonga.tar.gz"
-    mkdir -p groonga  
-  fi
-  tar -zxvf groonga.tar.gz --strip-components=1 -C groonga
- 
-cd groonga
-
-cmake -S . -B build -G Ninja \
-  -DGRN_WITH_MRUBY=OFF \
-  -DGRN_WITH_APACHE_ARROW=OFF \
-  --preset=release-maximum
-
-
-
-cmake --build build -j"$(nproc)"
-cmake --install build
-ldconfig
-
-groonga --version
-
-cd "$WNMPDIR"
-
-apt install -y   groonga-token-filter-stem groonga-tokenizer-mecab libgroonga-dev groonga-normalizer-mysql
-  
-  if [ ! -f "$WNMPDIR/mroonga.tar.gz" ]; then
-    rm -rf mroonga
-    download_with_mirrors "https://packages.groonga.org/source/mroonga/mroonga-latest.tar.gz" "$WNMPDIR/mroonga.tar.gz"
-    mkdir -p mroonga
-    
-  fi
-  
-  tar -zxvf mroonga.tar.gz --strip-components=1 -C mroonga
-  cd mroonga
-  mariadb_version=$(/usr/local/mariadb/bin/mysql_config --version)
-  cmake \
-      -S . \
-      -B build \
-      -GNinja \
-      -DGRN_LIBRARIES=/usr/lib/x86_64-linux-gnu/libgroonga.so \
-      -DMRN_DEFAULT_TOKENIZER=TokenBigramSplitSymbolAlphaDigit \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_INSTALL_PREFIX=/usr/local/mroonga \
-      -DMYSQL_BUILD_DIR="$WNMPDIR"/mariadb-$mariadb_version/build \
-      -DMYSQL_CONFIG=/usr/local/mariadb/bin/mysql_config \
-      -DMYSQL_SOURCE_DIR="$WNMPDIR"/mariadb-$mariadb_version
-  cmake --build build -j"$(nproc)"
-  cmake --install build
-
-  /usr/local/mariadb/bin/mysql -u root < /usr/local/mroonga/share/mroonga/install.sql
-
- cd "$WNMPDIR"
-
- 
-  rm -f /etc/apt/sources.list.d/apache-arrow*.list /etc/apt/sources.list.d/apache-arrow*.sources
-  rm -f /etc/apt/sources.list.d/groonga*.list /etc/apt/sources.list.d/groonga*.sources
-  rm -f /usr/share/keyrings/apache-arrow-archive-keyring.gpg
-  rm -f /usr/share/keyrings/groonga-archive-keyring.gpg
-  rm -f /etc/apt/trusted.gpg.d/apache-arrow*.gpg /etc/apt/trusted.gpg.d/groonga*.gpg
-  rm -f /etc/apt/preferences.d/groonga.pref
-  apt-get update
+  install_mroonga
 
 else
   echo "Do not install MariaDB"
