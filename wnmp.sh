@@ -3,7 +3,7 @@
 # Copyright (C) 2025 wnmp.org
 # Website: https://wnmp.org
 # License: GNU General Public License v3.0 (GPLv3)
-# Version: 1.28
+# Version: 1.30
 
 set -euo pipefail
 
@@ -20,7 +20,11 @@ if [ "$(id -u)" -ne 0 ]; then
   echo "[-] Please run as root"
   exit 1
 fi
-
+IS_LAN=1
+PUBLIC_IP=""
+IS_CN=0
+PROXY_MODE=${PROXY_MODE:-}
+rm -rf /tmp/wnmp_proxy_choice
 SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
 TARGET_PATH="/usr/local/bin/wnmp"
 
@@ -59,7 +63,7 @@ green  " [init] WNMP one-click installer started"
 green  " [init] https://wnmp.org"
 green  " [init] Logs saved to: ${LOGFILE}"
 green  " [init] Start time: $(date '+%F %T')"
-green  " [init] Version: 1.28"
+green  " [init] Version: 1.30"
 green  "============================================================"
 echo
 sleep 1
@@ -67,19 +71,19 @@ sleep 1
 usage() {
   cat <<'USAGE'
 Usage:
-  bash wnmp.sh               # Normal installation
-  bash wnmp.sh status        # Show service status
-  bash wnmp.sh sshkey        # Configure SSH key login
-  bash wnmp.sh webdav        # Add a WebDAV account
-  bash wnmp.sh vhost         # Create a virtual host (with SSL certificate)
-  bash wnmp.sh tool          # Kernel / network tuning only
-  bash wnmp.sh restart       # Restart services
-  bash wnmp.sh remove        # Uninstall everything
-  bash wnmp.sh renginx       # Uninstall Nginx
-  bash wnmp.sh rephp         # Uninstall PHP
-  bash wnmp.sh remariadb     # Uninstall MariaDB
-  bash wnmp.sh fixsshd       # Self-check and attempt to fix sshd
-  bash wnmp.sh -h|--help     # Show help
+  wnmp               # Normal installation
+  wnmp status        # Show service status
+  wnmp sshkey        # Configure SSH key login
+  wnmp webdav        # Add a WebDAV account
+  wnmp vhost         # Create a virtual host (with SSL certificate)
+  wnmp tool          # Kernel / network tuning only
+  wnmp restart       # Restart services
+  wnmp remove        # Uninstall everything
+  wnmp renginx       # Uninstall Nginx
+  wnmp rephp         # Uninstall PHP
+  wnmp remariadb     # Uninstall MariaDB
+  wnmp fixsshd       # Self-check and attempt to fix sshd
+  wnmp -h|--help     # Show help
 USAGE
 }
 
@@ -130,68 +134,155 @@ download_with_mirrors() {
   local ua="Mozilla/5.0"
   local tmp="${out}.part"
 
+  local MAX_ROUNDS=3
+  local ROUND_SLEEP=5
 
-  local MAX_ROUNDS=3   
-  local ROUND_SLEEP=5  
+  local LOCAL_SOCKS_BIND="127.0.0.1"
+  local LOCAL_SOCKS_PORT="32000"
 
   mkdir -p "$(dirname "$out")" 2>/dev/null || true
 
 
+  _ensure_socks_ready() {
+    
+    local retry=3
+    while (( retry > 0 )); do
+      if proxy_healthcheck 2>/dev/null; then
+        return 0
+      fi
+      
+      echo "[$label][INFO] Attempt to start an SSH tunnel..."
+      enable_proxy >/dev/null 2>&1 || true
+      sleep 5 
+      (( retry-- ))
+    done
+    
+    proxy_healthcheck 2>/dev/null
+  }
+
+ 
+  _curl_no_proxy_opts() {
+   
+    echo "-x" "" "--noproxy" "*"
+  }
+
+  
+  local USE_SOCKS=0
+
+  _curl_proxy_opts() {
+    if (( USE_SOCKS == 1 )); then
+     
+      echo "--socks5-hostname" "${LOCAL_SOCKS_BIND}:${LOCAL_SOCKS_PORT}"
+    else
+      echo
+    fi
+  }
+
+  _wget_proxy_env() {
+    if (( USE_SOCKS == 1 )); then
+      
+      export http_proxy="socks5h://${LOCAL_SOCKS_BIND}:${LOCAL_SOCKS_PORT}"
+      export https_proxy="socks5h://${LOCAL_SOCKS_BIND}:${LOCAL_SOCKS_PORT}"
+      export HTTP_PROXY="$http_proxy"
+      export HTTPS_PROXY="$https_proxy"
+      export ALL_PROXY="socks5h://${LOCAL_SOCKS_BIND}:${LOCAL_SOCKS_PORT}"
+      export all_proxy="$ALL_PROXY"
+      export WGETRC="/dev/null"
+    else
+      unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY all_proxy WGETRC
+    fi
+  }
+
+  _aria2_proxy_opts() {
+    if (( USE_SOCKS == 1 )); then
+      echo "--all-proxy=socks5h://${LOCAL_SOCKS_BIND}:${LOCAL_SOCKS_PORT}" \
+           "--all-proxy-connect-timeout=10" "--all-proxy-timeout=60"
+    else
+      echo
+    fi
+  }
+
   local final_url="$url"
   if command -v curl >/dev/null 2>&1; then
-    final_url="$(curl -A "$ua" -fsSLI -o /dev/null -w '%{url_effective}' "$url" 2>/dev/null || true)"
+  
+    final_url="$(curl -A "$ua" -fsSLI $(_curl_no_proxy_opts) \
+      --connect-timeout 10 --max-time 30 \
+      -o /dev/null -w '%{url_effective}' "$url" 2>/dev/null || true)"
   else
     local loc
-    loc="$(wget -S --spider -O /dev/null "$url" 2>&1 | awk -F': ' '/^  Location: /{print $2}' | tail -n1 | tr -d '\r' || true)"
+    loc="$(wget -S --spider -O /dev/null \
+      --timeout=10 --tries=2 "$url" 2>&1 | \
+      awk -F': ' '/^  Location: /{print $2}' | tail -n1 | tr -d '\r' || true)"
     [[ -n "$loc" ]] && final_url="$loc"
   fi
   [[ -z "$final_url" ]] && final_url="$url"
 
-
   local candidates=()
   candidates+=("$final_url" "$url")
 
-  if [[ "$final_url" == https://github.com/* ]]; then
-    candidates+=(
-      "https://ghproxy.com/${final_url}"
-      "https://ghproxy.net/${final_url}"
-      "https://mirror.ghproxy.com/${final_url}"
-      "https://download.fastgit.org/${final_url#https://github.com/}"
-    )
-  fi
-
+  # uniq
   local uniq=() x y seen
   for x in "${candidates[@]}"; do
+    [[ -z "$x" ]] && continue
     seen=0
-    for y in "${uniq[@]}"; do [[ "$y" == "$x" ]] && seen=1 && break; done
+    for y in "${uniq[@]}"; do
+      [[ "$y" == "$x" ]] && seen=1 && break
+    done
     [[ $seen -eq 0 ]] && uniq+=("$x")
   done
   candidates=("${uniq[@]}")
 
- 
   local round try_url ok
   for ((round=1; round<=MAX_ROUNDS; round++)); do
     echo "[$label] ===== Round $round / $MAX_ROUNDS ====="
     rm -f "$tmp"
 
+   
+    if [[ "${IS_CN:-0}" -eq 0 ]]; then
+      
+      local p="${ALL_PROXY:-${all_proxy:-${HTTPS_PROXY:-${https_proxy:-${HTTP_PROXY:-${http_proxy:-}}}}}}"
+      if [[ "$p" =~ ^socks5h?:// ]]; then
+        USE_SOCKS=1
+       
+      else
+        USE_SOCKS=0
+       
+      fi
+    else
+    
+      if _ensure_socks_ready; then
+        USE_SOCKS=1
+        echo "[$label][INFO] SSH tunneling is available; download using a SOCKS5 proxy."
+      else
+        USE_SOCKS=0
+        echo "[$label][WARN] SSH tunneling is unavailable; please attempt a direct connection for download."
+      fi
+    fi
+
     for try_url in "${candidates[@]}"; do
-      echo "[$label] trying: $try_url"
+      echo "[$label] trying: $try_url (socks=$USE_SOCKS)"
 
       if command -v aria2c >/dev/null 2>&1; then
+       
         aria2c -c -x 8 -s 8 -k 1M \
           --connect-timeout=10 --timeout=60 --retry-wait=1 --max-tries=5 \
           --allow-overwrite=true \
           --user-agent="$ua" \
+          $(_aria2_proxy_opts) \
           -o "$(basename "$tmp")" -d "$(dirname "$tmp")" \
           "$try_url" && ok=1 || ok=0
 
       elif command -v curl >/dev/null 2>&1; then
+        
         curl -A "$ua" -fL --http1.1 \
+          $(_curl_proxy_opts) \
           --connect-timeout 10 --max-time 900 \
           --retry 5 --retry-delay 1 --retry-connrefused \
           -C - -o "$tmp" "$try_url" && ok=1 || ok=0
 
       else
+       
+        _wget_proxy_env
         wget -c --timeout=10 --tries=5 --waitretry=1 \
           --header="User-Agent: $ua" \
           -O "$tmp" "$try_url" && ok=1 || ok=0
@@ -209,11 +300,11 @@ download_with_mirrors() {
       sleep "$ROUND_SLEEP"
     fi
   done
+
   rm -f "$tmp"
   echo "[$label][ERROR] download failed after $MAX_ROUNDS rounds (mirrors exhausted)."
   return 1
 }
-
 
 fixsshd() {
   echo "=========================================="
@@ -314,14 +405,14 @@ wslinit() {
   echo "[7/7] Set the root password (enter it twice as prompted; if already set, you can skip this step without error)...."
   (passwd root || true)
 
-  echo "[7.1/7] 写入 /etc/wsl.conf（Enable systemd, default user root）..."
+  echo "[7.1/7] Write /etc/wsl.conf（Enable systemd, default user root）..."
   cat >/etc/wsl.conf <<'EOF'
 [boot]
 systemd=true
 [user]
 default=root
 EOF
-  fixsshd || echo "[WARN] sshd Self-check failed. Please manually run bash wnmp.sh fixsshd to view the cause.。"
+  fixsshd || echo "[WARN] sshd Self-check failed. Please manually run wnmp fixsshd to view the cause.。"
   echo
   echo "================= Complete ================="
   echo "[OK] System upgraded, common tools and openssh-server installed."
@@ -342,7 +433,7 @@ EOF
   echo
   echo "  5) WSL initialization is complete. You must run the startup script and reboot your hardware computer for it to function properly."
   echo
-  echo "  6) Please restart your Windows 11 computer and execute bash wnmp.sh again within the Linux subsystem to actually install the web environment."
+  echo "  6) Please restart your Windows 11 computer and execute [wnmp] again within the Linux subsystem to actually install the web environment."
   echo
   echo "========================================"
   exit 1
@@ -350,9 +441,7 @@ EOF
 
 
 
-IS_LAN=1
-PUBLIC_IP=""
-IS_CN=0
+
 
 is_lan() {
     IS_LAN=0
@@ -684,94 +773,341 @@ EOF
 }
 
 enable_proxy() {
-  local PROXY_USER="wnmp"
-  local PROXY_PASS="passwdwnmp"
-  local PROXY_PORT="3128"
 
-  local PROXIES=(
+  local SSH_USER="wnmp"
+  local SSH_PASS="passwdwnmp"
+  local SSH_PORT="22"
+
+  local SSH_HOSTS=(
     "51.178.43.90"
     "204.152.198.192"
+    "43.134.121.131"
   )
 
-  local TIMEOUT=5          
-  local PING_COUNT=3       
-  local PING_INTERVAL=0.2  
+  local LOCAL_BIND="127.0.0.1"
+  local LOCAL_PORT="32000"
 
-  unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY NO_PROXY
+  local CONNECT_TIMEOUT=10
+  local TUNNEL_WAIT=3
 
-  local proxy_results=()
-  local available_proxies=()
+  local TUN_LOG="/tmp/wnmp_ssh_socks_tunnel.log"
+  local SSHPASS_PATH
 
-  echo "=== Device ↔ Proxy Server Speed Test Results (Ping Average Latency) ==="
+  local CHOICE_FILE="/tmp/wnmp_proxy_choice"
+  local arg_mode="${1:-}"
 
-  for host in "${PROXIES[@]}"; do
+  unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY all_proxy NO_PROXY no_proxy
 
-    local ping_output
-    ping_output=$(ping -c "$PING_COUNT" -W "$TIMEOUT" -i "$PING_INTERVAL" -q "$host" 2>/dev/null)
+  if ! command -v sshpass >/dev/null 2>&1; then
     
-
-    local avg_ms
-
-    avg_ms=$(echo "$ping_output" | grep -o 'rtt min/avg/max/mdev = [0-9.]*\/[0-9.]*\/[0-9.]*\/[0-9.]* ms' | awk -F'[ /=]' '{print $8}')
-
-    if [[ -z "$avg_ms" ]]; then
-      avg_ms=$(echo "$ping_output" | grep -o 'round-trip min/avg/max/stddev = [0-9.]*\/[0-9.]*\/[0-9.]*\/[0-9.]* ms' | awk -F'[ /=]' '{print $9}')
+    if command -v apt-get >/dev/null 2>&1; then
+      apt-get update -y >/dev/null 2>&1 || true
+      apt-get install -y sshpass >/dev/null 2>&1 || true
     fi
+  fi
 
-
-    if [[ -z "$avg_ms" || "$avg_ms" == "0.000" || "$avg_ms" == "0" ]]; then
-      echo "[${#available_proxies[@]}+1] ${host}:${PROXY_PORT} -> Unavailable (ping timed out/no response)"
-      continue
-    fi
-
-
-    local ms
-    ms=$(awk -v avg="$avg_ms" 'BEGIN { printf "%d", avg + 0.5 }')
-
-    available_proxies+=("$host")
-    proxy_results+=("$ms")
+  SSHPASS_PATH="$(command -v sshpass)"
+  if [[ -z "$SSHPASS_PATH" ]]; then
     
-    echo "[${#available_proxies[@]}] ${host}:${PROXY_PORT} -> ${ms} ms (Average delay)"
-  done
+    return 1
+  fi
 
-  if [[ ${#available_proxies[@]} -eq 0 ]]; then
-    echo "[proxy][ERROR] No available proxies found. Proxy settings have been skipped."
+  _port_in_use() {
+    if command -v ss >/dev/null 2>&1; then
+      ss -lnt | grep -qE "${LOCAL_BIND}:${LOCAL_PORT}([[:space:]]|$)"
+    else
+      netstat -lnt 2>/dev/null | grep -qE "${LOCAL_BIND}:${LOCAL_PORT}([[:space:]]|$)"
+    fi
+  }
+
+  _kill_old_tunnel() {
+    fuser -k "${LOCAL_BIND}:${LOCAL_PORT}/tcp" 2>/dev/null || true
+    pkill -9 -f "ssh.*-D[[:space:]]*${LOCAL_BIND}:${LOCAL_PORT}" 2>/dev/null || true
+    pkill -9 -f "sshpass.*ssh.*-D[[:space:]]*${LOCAL_BIND}:${LOCAL_PORT}" 2>/dev/null || true
+    sleep 0.3
+  }
+
+  _start_tunnel() {
+    local host="$1"
+    echo "[proxy][INFO] Launch Tunnel:${host}"
+
+    "$SSHPASS_PATH" -p "$SSH_PASS" ssh \
+      -p "$SSH_PORT" \
+      -o StrictHostKeyChecking=no \
+      -o UserKnownHostsFile=/dev/null \
+      -o ConnectTimeout="$CONNECT_TIMEOUT" \
+      -o ExitOnForwardFailure=yes \
+      -o PreferredAuthentications=password \
+      -o PubkeyAuthentication=no \
+      -o PasswordAuthentication=yes \
+      -o TCPKeepAlive=yes \
+      -o ServerAliveInterval=15 \
+      -o ServerAliveCountMax=3 \
+      -o LogLevel=ERROR \
+      -fN \
+      -D "${LOCAL_BIND}:${LOCAL_PORT}" \
+    "${SSH_USER}@${host}" >>"$TUN_LOG" 2>&1
+
+    local i=0
+    while ! _port_in_use && (( i < TUNNEL_WAIT * 10 )); do
+      sleep 0.1
+      ((i++))
+    done
+
+    if _port_in_use; then
+   
+      if proxy_healthcheck "$LOCAL_BIND" "$LOCAL_PORT" "https://github.com" 6; then
+        echo "[proxy][OK] Tunnel available ${LOCAL_BIND}:${LOCAL_PORT}"
+        return 0
+      fi
+
+      echo "[proxy][WARN] Port is listening but failed to detect. Restart the tunnel...."
+      _kill_old_tunnel
+      return 1
+    else
+      echo "[proxy][ERROR] Tunnel launch failed"
+      tail -n 30 "$TUN_LOG" 2>/dev/null || true
+      return 1
+    fi
+  }
+
+  _apply_env() {
+    local proxy_addr="socks5h://${LOCAL_BIND}:${LOCAL_PORT}"
+
+    export ALL_PROXY="$proxy_addr"
+    export all_proxy="$proxy_addr"
+    export HTTP_PROXY="$proxy_addr"
+    export HTTPS_PROXY="$proxy_addr"
+    export http_proxy="$proxy_addr"
+    export https_proxy="$proxy_addr"
+
+    git config --global http.proxy "$proxy_addr" >/dev/null 2>&1 || true
+    git config --global https.proxy "$proxy_addr" >/dev/null 2>&1 || true
+
+    export NO_PROXY="127.0.0.1,localhost,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+    export no_proxy="$NO_PROXY"
+
+mkdir -p /etc/apt/apt.conf.d
+tee /etc/apt/apt.conf.d/99-no-proxy >/dev/null <<EOF
+Acquire::http::Proxy "DIRECT";
+Acquire::https::Proxy "DIRECT";
+Acquire::ftp::Proxy "DIRECT";
+Acquire::socks::Proxy "DIRECT";
+EOF
+
+
+
+    echo "[proxy][OK] Proxy enabled:$proxy_addr"
+  }
+
+  local choice=""
+
+
+  if [[ -n "$arg_mode" ]]; then
+    choice="$arg_mode"
+  elif [[ -n "${WNMP_PROXY_MODE:-}" ]]; then
+    choice="${WNMP_PROXY_MODE}"
+  elif [[ -s "$CHOICE_FILE" ]]; then
+    choice="$(cat "$CHOICE_FILE" 2>/dev/null | tr -d '\r\n ')"
+  fi
+
+ 
+  if [[ -z "$choice" ]]; then
+    if [[ -t 0 ]]; then
+      while true; do
+        echo
+        echo "=== Please select proxy mode ==="
+        echo "0) Direct connection (without using any proxy)"
+        echo "1) Using proxy nodes: ${SSH_HOSTS[0]}"
+        echo "2) Using proxy nodes: ${SSH_HOSTS[1]}"
+        echo "3) Using proxy nodes: ${SSH_HOSTS[2]}"
+        read -rp "Please enter your selection. (0-3): " choice
+        [[ "$choice" =~ ^[0-3]$ ]] && break
+        echo "[proxy][WARN] Invalid input. Please enter 0-3"
+      done
+    else
+      choice="AUTO"
+    fi
+  fi
+
+  # DIRECT/0
+  if [[ "$choice" == "0" || "${choice^^}" == "DIRECT" ]]; then
+    echo "[proxy][INFO] Direct connection selected, proxy disabled"
+    PROXY_MODE="DIRECT"
+    
+    echo "DIRECT" >"$CHOICE_FILE" 2>/dev/null || true
+    return 0
+  fi
+
+
+  local host=""
+  case "${choice^^}" in
+    1) host="${SSH_HOSTS[0]}" ;;
+    2) host="${SSH_HOSTS[1]}" ;;
+    3) host="${SSH_HOSTS[2]}" ;;
+    AUTO)
+     
+      ;;
+    *)
+    
+      host="$choice"
+      ;;
+  esac
+
+  _kill_old_tunnel
+  : >"$TUN_LOG" 2>/dev/null || true
+
+  if [[ "${choice^^}" == "AUTO" ]]; then
+    local i
+    for i in "${!SSH_HOSTS[@]}"; do
+      if _start_tunnel "${SSH_HOSTS[$i]}"; then
+        host="${SSH_HOSTS[$i]}"
+        echo "$((i+1))" >"$CHOICE_FILE" 2>/dev/null || true
+        _apply_env
+        PROXY_MODE="SOCKS"
+        return 0
+      fi
+    done
+    echo "[proxy][ERROR] AUTO: All nodes failed to start."
+    return 1
+  fi
+
+  echo "[proxy][OK] Selected node:$host"
+  if ! _start_tunnel "$host"; then
     return 1
   fi
 
 
-  echo -e "\nPlease select the proxy to use (enter the corresponding number):"
-  local selection
-  read -r selection
+  echo "$choice" >"$CHOICE_FILE" 2>/dev/null || true
 
-
-  if ! [[ "$selection" =~ ^[0-9]+$ ]] || 
-     [[ "$selection" -lt 1 ]] || 
-     [[ "$selection" -gt ${#available_proxies[@]} ]]; then
-    echo "[proxy][ERROR] Invalid selection (please enter a number between 1 and ${#available_proxies[@]}), proxy settings skipped"
-    return 1
-  fi
-
-
-  local index=$((selection - 1))
-  local selected_proxy="${available_proxies[$index]}"
-  local selected_time="${proxy_results[$index]}"
-
-  export HTTP_PROXY="http://${PROXY_USER}:${PROXY_PASS}@${selected_proxy}:${PROXY_PORT}"
-  export HTTPS_PROXY="http://${PROXY_USER}:${PROXY_PASS}@${selected_proxy}:${PROXY_PORT}"
-  export NO_PROXY="127.0.0.1,localhost,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
-  
-  echo "[proxy][OK] Proxy selected:${selected_proxy}:${PROXY_PORT} (Device ↔ Agent Average Latency:${selected_time} ms)"
+  _apply_env
+  PROXY_MODE="SOCKS"
+  return 0
 }
+
+
 
 
 disable_proxy() {
-  unset HTTP_PROXY HTTPS_PROXY NO_PROXY
-  echo "[proxy] Global proxy has been disabled."
+   
+    set +e
+    
+    local LOCAL_BIND="${1:-127.0.0.1}"
+    local LOCAL_PORT="${2:-32000}"
+   
+    local SAFE_PORT=$(echo "$LOCAL_PORT" | sed 's/[^0-9]//g')
+    local WD_SCRIPT="/tmp/wnmp_socks_watchdog_${SAFE_PORT}.sh"
+
+    local ssh_pattern="ssh[[:space:]]*(-D)[[:space:]]*${LOCAL_BIND}:${SAFE_PORT}([[:space:]]|$)"
+    local sshpass_pattern="sshpass[[:space:]]*ssh[[:space:]]*(-D)[[:space:]]*${LOCAL_BIND}:${SAFE_PORT}([[:space:]]|$)"
+
+
+    unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY all_proxy NO_PROXY no_proxy || true
+
+  
+    git config --global --unset http.proxy  2>/dev/null || true
+    git config --global --unset https.proxy 2>/dev/null || true
+
+
+    if pgrep -f "$WD_SCRIPT" >/dev/null 2>&1; then
+        pkill -TERM -f "$WD_SCRIPT" 2>/dev/null || true
+        sleep 0.5
+       
+        if pgrep -f "$WD_SCRIPT" >/dev/null 2>&1; then
+            pkill -9 -f "$WD_SCRIPT" 2>/dev/null || true
+        fi
+    fi
+
+    pkill -9 -f "wnmp_socks_watchdog.*${LOCAL_BIND}:${SAFE_PORT}\b" 2>/dev/null || true
+    rm -f "$WD_SCRIPT" 2>/dev/null || true
+
+   
+    pkill -TERM -f "$ssh_pattern" 2>/dev/null || true
+    pkill -TERM -f "$sshpass_pattern" 2>/dev/null || true
+    sleep 0.5
+   
+    if pgrep -f "$ssh_pattern" >/dev/null 2>&1; then
+        pkill -9 -f "$ssh_pattern" 2>/dev/null || true
+    fi
+    if pgrep -f "$sshpass_pattern" >/dev/null 2>&1; then
+        pkill -9 -f "$sshpass_pattern" 2>/dev/null || true
+    fi
+
+   
+    if command -v fuser >/dev/null 2>&1; then
+        fuser -k -n tcp "${LOCAL_BIND}:${SAFE_PORT}" 2>/dev/null || true
+    else
+       
+        local pid_list
+        pid_list=$(ss -lntp 2>/dev/null | grep -E "${LOCAL_BIND}:${SAFE_PORT}\b" | awk -F'[,=]' '{for(i=1;i<=NF;i++){if($i~/pid/){print $(i+1);break}}}' | sed 's/[^0-9]//g')
+       
+        if [ -n "$pid_list" ]; then
+            for pid in $pid_list; do
+                kill -TERM "$pid" 2>/dev/null || kill -9 "$pid" 2>/dev/null || true
+            done
+        fi
+    fi
+
+
+    sleep 1
+    if command -v ss >/dev/null 2>&1; then
+        if ss -lnt 2>/dev/null | grep -qE "${LOCAL_BIND}:${SAFE_PORT}\b"; then
+            echo "[proxy][WARN] Port ${LOCAL_BIND}:${SAFE_PORT} Still occupied:"
+            ss -lntp | grep -E "${LOCAL_BIND}:${SAFE_PORT}\b" 2>/dev/null || true
+        fi
+    fi
+mkdir -p /etc/apt/apt.conf.d
+tee /etc/apt/apt.conf.d/99-no-proxy >/dev/null <<EOF
+Acquire::http::Proxy "DIRECT";
+Acquire::https::Proxy "DIRECT";
+Acquire::ftp::Proxy "DIRECT";
+Acquire::socks::Proxy "DIRECT";
+EOF
+    set -e
 }
+
+
 proxy_healthcheck() {
-  curl -fsS --max-time 5 https://github.com >/dev/null
+  local LOCAL_BIND="127.0.0.1"
+  local LOCAL_PORT="32000"
+  local TEST_URL="https://github.com"
+
+  if [[ -z "${ALL_PROXY:-}" && -z "${http_proxy:-}" && -z "${HTTP_PROXY:-}" ]]; then
+   
+    return 0
+  fi
+
+
+  if command -v ss >/dev/null 2>&1; then
+    ss -lnt 2>/dev/null | grep -qE "${LOCAL_BIND}:${LOCAL_PORT}([[:space:]]|$)" || return 1
+  else
+    netstat -lnt 2>/dev/null | grep -qE "${LOCAL_BIND}:${LOCAL_PORT}([[:space:]]|$)" || return 1
+  fi
+
+
+  if ! pgrep -f "ssh( |.* )-D[[:space:]]*${LOCAL_BIND}:${LOCAL_PORT}([[:space:]]|$)" >/dev/null 2>&1 &&
+     ! pgrep -f "sshpass( |.* )ssh( |.* )-D[[:space:]]*${LOCAL_BIND}:${LOCAL_PORT}([[:space:]]|$)" >/dev/null 2>&1; then
+    return 1
+  fi
+
+  local ok=1
+  for _ in 1 2; do
+    if curl -fsS \
+      --connect-timeout 5 \
+      --max-time 8 \
+      --socks5-hostname "${LOCAL_BIND}:${LOCAL_PORT}" \
+      "$TEST_URL" >/dev/null 2>&1; then
+      ok=0
+      break
+    fi
+    sleep 0.3
+  done
+
+  return $ok
 }
+
+
+
 
 
 webdav() {
@@ -2180,11 +2516,13 @@ for arg in "$@"; do
 
 
 if [[ "$IS_CN" -eq 1 ]]; then
-  enable_proxy
-  if ! proxy_healthcheck; then
-    echo "[proxy][WARN] The proxy is unavailable and has been automatically disabled."
-    disable_proxy
-  fi
+    enable_proxy
+
+    if [[ "${PROXY_MODE:-}" != "DIRECT" ]]; then
+      if ! proxy_healthcheck; then
+        disable_proxy
+      fi
+    fi
 fi
 
 aptinit
@@ -2603,7 +2941,7 @@ fi
 
   cp "$WNMPDIR"/pie.phar /usr/local/php/bin/pie && chmod +x /usr/local/php/bin/pie
 
-pecl channel-update pecl.php.net
+
 rm -rf swoole-src
 if [[ "$php_version" =~ ^8\.5\. ]]; then
   if [ ! -f ""$WNMPDIR"/swoole.tar.gz" ]; then
@@ -2626,24 +2964,13 @@ fi
   --enable-openssl  --enable-mysqlnd --enable-swoole-curl --enable-cares --enable-iouring --enable-zstd && \
   make && make install
   
-  if [[ -x /usr/local/php/bin/pie ]]; then
-    /usr/local/php/bin/pie install phpredis/phpredis || printf "\n" | pecl install redis
-  else
-    printf "\n" | pecl install redis
-  fi
-  if [[ -x /usr/local/php/bin/pie ]]; then
-    /usr/local/php/bin/pie install arnaud-lb/inotify || printf "\n" | pecl install inotify
-  else
-    printf "\n" | pecl install inotify
-  fi
-  if [[ -x /usr/local/php/bin/pie ]]; then
-    /usr/local/php/bin/pie install apcu/apcu || printf "\n" | pecl install apcu
-  else
-    printf "\n" | pecl install apcu
-  fi
+  /usr/local/php/bin/pie install phpredis/phpredis
+  /usr/local/php/bin/pie install arnaud-lb/inotify
+  /usr/local/php/bin/pie install apcu/apcu
+ 
 
 else
-  echo '不安装php'
+  echo 'Do not install PHP'
 fi
 
 
