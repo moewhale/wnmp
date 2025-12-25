@@ -192,7 +192,7 @@ Press Win+R to open the Run dialog, type `cmd`. Press Shift+Ctrl+Enter to open t
 
 `wsl -l -o` # to check if remote system lists are accessible. If successful, WSL is functioning properly.
 
-`wsl --install debian --web-download` # (Begin installing the Debian 13 subsystem. The first command execution may require a system restart or prompt for missing CPU virtualization support. Follow the on-screen instructions.)
+`wsl --install debian` # or `wsl --install debian --web-download` # (Begin installing the Debian 13 subsystem. The first command execution may require a system restart or prompt for missing CPU virtualization support. Follow the on-screen instructions.)
 
 After successful installation, you will be prompted to configure a standard account and password. Once configured, simply type: exit to exit the subsystem.
 
