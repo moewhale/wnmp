@@ -13,7 +13,7 @@ https://mroonga.org/users/
 
 > 轻量 · 稳定 · 可复制  
 > 一条命令在Windows11(WSL)+Linux(Debian,Ubuntu)安装 Nginx + PHP + MariaDB（内置 Mroonga 搜索引擎）+ WebDAV，自动完成内核/网络调优与 SSL 证书配置。
-
+> 已默认申请Let's Encrypt IP证书保护
 ---
 
 ## WNMP：
