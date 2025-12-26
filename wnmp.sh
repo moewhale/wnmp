@@ -3076,18 +3076,18 @@ case "$choosenginx" in
 
     
 
-    if [ ! -f "$WNMPDIR/nginx-1.28.0.tar.gz" ]; then
-      rm -rf nginx-1.28.0
-      download_with_mirrors "https://nginx.org/download/nginx-1.28.0.tar.gz" "$WNMPDIR/nginx-1.28.0.tar.gz"
-      tar zxvf nginx-1.28.0.tar.gz
-      cd nginx-1.28.0
+    if [ ! -f "$WNMPDIR/nginx-1.28.1.tar.gz" ]; then
+      rm -rf nginx-1.28.1
+      download_with_mirrors "https://nginx.org/download/nginx-1.28.1.tar.gz" "$WNMPDIR/nginx-1.28.1.tar.gz"
+      tar zxvf nginx-1.28.1.tar.gz
+      cd nginx-1.28.1
       git --version >/dev/null || { log "git missing"; exit 1; }
       git_clone_wnmp https://github.com/arut/nginx-dav-ext-module.git
      
       
     else
-      tar zxvf nginx-1.28.0.tar.gz
-      cd nginx-1.28.0
+      tar zxvf nginx-1.28.1.tar.gz
+      cd nginx-1.28.1
       git --version >/dev/null || { log "git missing"; exit 1; }
       rm -rf nginx-dav-ext-module
       git_clone_wnmp https://github.com/arut/nginx-dav-ext-module.git
