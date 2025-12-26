@@ -255,6 +255,15 @@ hostAddressLoopback=true
 
 ---
 
+---
+
+本项目面向可控环境与高级用户，包含对系统与内核的主动调优。
+若你不接受该设计取向，请勿使用本项目。
+Issues 仅用于提交可复现的功能性 BUG。
+
+---
+
+
 ## 🤝 社区
 
 - **官网:** [https://wnmp.org](https://wnmp.org)
