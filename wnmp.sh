@@ -3,7 +3,7 @@
 # Copyright (C) 2025 wnmp.org
 # Website: https://wnmp.org
 # License: GNU General Public License v3.0 (GPLv3)
-# Version: 1.30
+# Version: 1.31
 
 set -euo pipefail
 
@@ -64,7 +64,7 @@ green  " [init] WNMP one-click installer started"
 green  " [init] https://wnmp.org"
 green  " [init] Logs saved to: ${LOGFILE}"
 green  " [init] Start time: $(date '+%F %T')"
-green  " [init] Version: 1.30"
+green  " [init] Version: 1.31"
 green  "============================================================"
 echo
 sleep 1
@@ -437,7 +437,10 @@ detect_cn_ip() {
       out="$(wget -qO- --timeout=3 --tries=2 "https://ifconfig.co/country-iso?ip=${ip}" 2>/dev/null | tr -d '\r\n ')" || true
       [[ -n "$out" ]] && { echo "$out"; return 0; }
     fi
-
+    if [[ "${IS_CN:-0}" -eq 0 ]]; then
+      disable_proxy "127.0.0.1" "32000" >/dev/null 2>&1 || true
+      PROXY_MODE="DIRECT"
+    fi
     return 1
   }
 
@@ -453,6 +456,17 @@ detect_cn_ip() {
   fi
 
   return 0
+}
+git_clone_wnmp() {
+  local repo="$1"
+  local dir="${2:-}"
+
+  if [[ "${PROXY_MODE:-}" == "DIRECT" || "${IS_CN:-0}" -eq 0 ]]; then
+    env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u all_proxy \
+      git -c http.proxy= -c https.proxy= clone --depth=1 "$repo" ${dir:+ "$dir"}
+  else
+    git clone --depth=1 "$repo" ${dir:+ "$dir"}
+  fi
 }
 download_with_mirrors() {
   local url="$1"
@@ -981,12 +995,21 @@ EOF
     fi
   fi
 
-  # DIRECT/0
-  if [[ "$choice" == "0" || "${choice^^}" == "DIRECT" ]]; then
-    echo "[proxy][INFO] Direct connection selected, proxy disabled"
+   if [[ "$choice" == "0" || "${choice^^}" == "DIRECT" ]]; then
+    echo "[proxy][INFO] Direct connection selected, disabling proxy..."
+
+    _kill_old_tunnel
+
+   
+    unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY all_proxy NO_PROXY no_proxy || true
+    git config --global --unset-all http.proxy  2>/dev/null || true
+    git config --global --unset-all https.proxy 2>/dev/null || true
+    git config --global --unset-all http.https://github.com.proxy  2>/dev/null || true
+    git config --global --unset-all https.https://github.com.proxy 2>/dev/null || true
+
     PROXY_MODE="DIRECT"
-    
     echo "DIRECT" >"$CHOICE_FILE" 2>/dev/null || true
+    echo "[proxy][OK] Direct mode enabled (git/env proxy cleared)"
     return 0
   fi
 
@@ -1056,8 +1079,10 @@ disable_proxy() {
     unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY all_proxy NO_PROXY no_proxy || true
 
   
-    git config --global --unset http.proxy  2>/dev/null || true
-    git config --global --unset https.proxy 2>/dev/null || true
+    git config --global --unset-all http.proxy  2>/dev/null || true
+    git config --global --unset-all https.proxy 2>/dev/null || true
+    git config --global --unset-all http.https://github.com.proxy  2>/dev/null || true
+    git config --global --unset-all https.https://github.com.proxy 2>/dev/null || true
 
 
     if pgrep -f "$WD_SCRIPT" >/dev/null 2>&1; then
@@ -1119,16 +1144,12 @@ EOF
 
 
 proxy_healthcheck() {
-  local LOCAL_BIND="127.0.0.1"
-  local LOCAL_PORT="32000"
-  local TEST_URL="https://github.com"
+  local LOCAL_BIND="${1:-127.0.0.1}"
+  local LOCAL_PORT="${2:-32000}"
+  local TEST_URL="${3:-https://github.com}"
+  local MAX_TIME="${4:-8}"
 
-  if [[ -z "${ALL_PROXY:-}" && -z "${http_proxy:-}" && -z "${HTTP_PROXY:-}" ]]; then
-   
-    return 0
-  fi
-
-
+ 
   if command -v ss >/dev/null 2>&1; then
     ss -lnt 2>/dev/null | grep -qE "${LOCAL_BIND}:${LOCAL_PORT}([[:space:]]|$)" || return 1
   else
@@ -1141,20 +1162,11 @@ proxy_healthcheck() {
     return 1
   fi
 
-  local ok=1
-  for _ in 1 2; do
-    if curl -fsS \
-      --connect-timeout 5 \
-      --max-time 8 \
-      --socks5-hostname "${LOCAL_BIND}:${LOCAL_PORT}" \
-      "$TEST_URL" >/dev/null 2>&1; then
-      ok=0
-      break
-    fi
-    sleep 0.3
-  done
-
-  return $ok
+  curl -fsS \
+    --connect-timeout 5 \
+    --max-time "$MAX_TIME" \
+    --socks5-hostname "${LOCAL_BIND}:${LOCAL_PORT}" \
+    "$TEST_URL" >/dev/null 2>&1
 }
 
 
@@ -2034,9 +2046,7 @@ chown root:root "${PRIV_KEY}" "${PUB_KEY}"
 PermitRootLogin prohibit-password
 PubkeyAuthentication yes
 PasswordAuthentication no
-AllowUsers root
-# AuthenticationMethods publickey
-# -----------------------------------------------------------
+AllowUsers root wnmp
 EOF
 
 
@@ -2115,6 +2125,7 @@ EOF
   fi
 
 }
+
 
 
 MYSQL_PASS='needpasswd'
@@ -2576,9 +2587,9 @@ if [[ "$IS_CN" -eq 1 ]]; then
     fi
 fi
 
+
+
 aptinit
-
-
 
 
 
@@ -2673,7 +2684,9 @@ if [ "$mariadb_version" != "0" ]; then
   read -p "Please enter the MySQL root password to set [default: needpasswd]: " MYSQL_PASS
   MYSQL_PASS=${MYSQL_PASS:-needpasswd}
 fi
-read -rp "Should NGINX be installed?(y/n): " choosenginx
+read -rp "Is NGINX installed?(y/n): " choosenginx
+
+
 if [[ "$IS_LAN" -eq 1 ]]; then
     red "[env] This is an internal network environment; certificate requests will be skipped."
     read -rp "Is it mandatory to apply for the certificate?[y/N] " ans
@@ -2687,6 +2700,7 @@ if [[ "$IS_LAN" -eq 1 ]]; then
   else
     green "[env] Public network environment detected; certificate application can proceed normally."
   fi
+
 
 
 apt --fix-broken install -y
@@ -2738,7 +2752,7 @@ CONFIGURE_OPTS=(
   "--enable-soap"
   "--enable-phar"
   "--disable-zts" 
-  "--disable-rpath"    
+  "--disable-rpath"
   "--enable-exif"
   "--enable-intl"
   "--enable-fpm"
@@ -3068,14 +3082,15 @@ case "$choosenginx" in
       tar zxvf nginx-1.28.0.tar.gz
       cd nginx-1.28.0
       git --version >/dev/null || { log "git missing"; exit 1; }
-      git clone --depth=1 https://github.com/arut/nginx-dav-ext-module.git
+      git_clone_wnmp https://github.com/arut/nginx-dav-ext-module.git
+     
       
     else
       tar zxvf nginx-1.28.0.tar.gz
       cd nginx-1.28.0
       git --version >/dev/null || { log "git missing"; exit 1; }
       rm -rf nginx-dav-ext-module
-      git clone --depth=1 https://github.com/arut/nginx-dav-ext-module.git
+      git_clone_wnmp https://github.com/arut/nginx-dav-ext-module.git
     fi
     make clean || true
    
