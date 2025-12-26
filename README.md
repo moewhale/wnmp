@@ -221,7 +221,7 @@ bash wnmp.sh
 ```
 
 In the taskbar, navigate to and open:
-C:\Users\[username]\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup
+`C:\Users\[username]\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup`
 Replace [username] with your actual Windows login username
 
 Create a new wsl.vbs file and add the following content:
@@ -240,7 +240,7 @@ Additional WSL commands: In the Windows cmd environment (not the subsystem shell
 `wsl --shutdown` # Stop the subsystem
 `wsl --unregister debian` # Unregister the subsystem
 
-To enable LAN access to the subsystem, navigate to the C:\Users\[username] directory. Replace [username] with your actual Windows login name.
+To enable LAN access to the subsystem, navigate to the `C:\Users\[username]` directory. Replace [username] with your actual Windows login name.
 
 Create a new .wslconfig file and add the following content:
 ```bash
