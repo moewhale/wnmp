@@ -253,6 +253,16 @@ You may use, modify, and redistribute under the same license terms.
 
 ---
 
+---
+
+This project targets controlled environments and experienced users, and intentionally performs system- and kernel-level tuning.
+Users who are not comfortable with these design decisions are advised not to use this project.
+The issue tracker is reserved for reproducible functional bugs only.
+
+---
+
+
+
 ## 🤝 Community
 
 - **Official Site:** [https://wnmp.org](https://wnmp.org)
