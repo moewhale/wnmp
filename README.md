@@ -184,7 +184,7 @@ it’s an **engineer-oriented deployment template** designed for transparency, c
 
 > Panels trade security for convenience — WNMP restores control and trust.
 
-## How to Install and Use WMMP on Windows?
+## How to Install and Use WNMP on Windows?
 
 Ensure you are using Windows 11. First, install the WSL subsystem.
 
