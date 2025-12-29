@@ -34,6 +34,8 @@ WNMP 并不是“把 Nginx + PHP + MariaDB 打成容器”，而是为了在干�
 
 ## 更新记录
 
+v1.33 加入 wnmp devssl 自签证书，适合Win11-WSL子系统本地开发环境走HTTPS请求
+
 v1.28 加入全局变量 wnmp 所有指令在任意目录可执行
 
 v1.26 php开启fileinfo,soap,sodium内置组件支持
