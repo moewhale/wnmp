@@ -3,7 +3,7 @@
 # Copyright (C) 2025 wnmp.org
 # Website: https://wnmp.org
 # License: GNU General Public License v3.0 (GPLv3)
-# Version: 1.31
+# Version: 1.32
 
 set -euo pipefail
 
@@ -64,7 +64,7 @@ green  " [init] WNMP one-click installer started"
 green  " [init] https://wnmp.org"
 green  " [init] Logs saved to: ${LOGFILE}"
 green  " [init] Start time: $(date '+%F %T')"
-green  " [init] Version: 1.31"
+green  " [init] Version: 1.32"
 green  "============================================================"
 echo
 sleep 1
@@ -692,8 +692,7 @@ fi
   echo "[$label][ERROR] download failed after $MAX_ROUNDS rounds (candidates exhausted)."
   return 1
 }
-is_lan
-detect_cn_ip || true
+
 
 aptinit() {
     local ORIG_IS_CN="${IS_CN:-0}" 
@@ -2171,6 +2170,8 @@ if grep -qi "microsoft" /proc/version 2>/dev/null; then
   fi
 
   if [[ $ssh_running -eq 0 ]]; then
+    is_lan
+    detect_cn_ip || true
     wslinit
   fi
 
@@ -2365,6 +2366,7 @@ EOF
   echo "[mroonga][OK] install_mroonga finished."
   return 0
 }
+
 
 
 
@@ -2577,6 +2579,10 @@ for arg in "$@"; do
 
 
 
+is_lan
+detect_cn_ip || true
+aptinit
+
 if [[ "$IS_CN" -eq 1 ]]; then
     enable_proxy
 
@@ -2586,12 +2592,6 @@ if [[ "$IS_CN" -eq 1 ]]; then
       fi
     fi
 fi
-
-
-
-aptinit
-
-
 
 
 
@@ -3944,6 +3944,7 @@ auto_optimize_services() {
   [ -f "$MYSQL_CONF" ] && { echo "[MariaDB]"; grep -E "innodb_buffer_pool_size|max_connections|tmp_table_size|max_heap_table_size" "$MYSQL_CONF" | sed 's/^[ \t]*//'; echo; }
   echo "================= Optimization Complete ================="
 }
+
 
 
 auto_optimize_services
