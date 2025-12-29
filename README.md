@@ -38,6 +38,8 @@ Therefore, WNMP is recommended for use on KVM virtual machines, cloud servers, o
 
 ## Update Log
 
+v1.33 Added `wnmp devssl` self-signed certificate, suitable for local development environments on Windows 11 WSL subsystem to handle HTTPS requests.
+
 v1.28 Added global variable wnmp; all commands can now be executed from any directory
 
 v1.26 Enables built-in PHP support for fileinfo, soap, and sodium extensions.
