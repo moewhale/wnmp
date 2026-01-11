@@ -34,9 +34,11 @@ WNMP 并不是“把 Nginx + PHP + MariaDB 打成容器”，而是为了在干�
 
 ## 更新记录
 
-v1.33 加入 wnmp devssl 自签证书，适合Win11-WSL子系统本地开发环境走HTTPS请求
+v1.34 新增 `wnmp sslcheck`,`wnmp ssltest` 自定义的sslcheck cron任务替换acme.sh默认cron任务，为域名和IP短效证书启用智能证书续期功能。acme官方续签脚本无法识别IP证书6天有效期，并无法自动重启nginx，导致IP证书续签失败
 
-v1.28 加入全局变量 wnmp 所有指令在任意目录可执行
+v1.33 加入 `wnmp devssl` 自签证书，适合Win11-WSL子系统本地开发环境走HTTPS请求
+
+v1.28 加入全局变量 `wnmp` 所有指令在任意目录可执行
 
 v1.26 php开启fileinfo,soap,sodium内置组件支持
 
@@ -56,7 +58,7 @@ v1.10 修改sshkey代码逻辑，重复申请ssh密钥只允许最新公钥密�
 
 v1.09 删除默认站点.pem文件，避免误会。默认站点正式申请证书后才会生成.pem证书文件
 
-v1.05 覆盖安装或执行wnmp remariadb 先全库备份在：/home/all_databases_backup_[time].sql.gz
+v1.05 覆盖安装或执行 `wnmp remariadb` 先全库备份在：/home/all_databases_backup_[time].sql.gz
 
 v1.04 纯网盘站点屏蔽.php文件,防止被下载源代码
 
@@ -135,6 +137,7 @@ bash wnmp.sh
 | 仅执行内核/网络调优 | `wnmp tool` # 验证指令： ulimit -n && ulimit -u && sysctl --system |
 | 重启所有服务 | `wnmp restart` |
 | 清理 | `wnmp remove` / `wnmp renginx` / `wnmp rephp` / `wnmp remariadb` |
+| SSL续签 | `wnmp sshcheck` / `wnmp sshtest` |
 ---
 
 ## 🌐 可选页脚标识
@@ -229,7 +232,7 @@ bash wnmp.sh
 ```bash
 Set ws = CreateObject("Wscript.Shell")
 ws.run "wsl -d debian", 0
-#(ws.run "wsl -d ubuntu", 0)
+' (ws.run "wsl -d ubuntu", 0)
 ```
 初始化完成后，子系统已安装SSH服务端，根据提示重启电脑后，你可以像正常服务器VPS一样用SSH客户端登录你的wsl debian 子系统
 
