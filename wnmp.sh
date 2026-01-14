@@ -3839,35 +3839,29 @@ cat <<'EOF' >  /usr/local/nginx/html/404.html
 <title>404 Not Found</title>
 <style>
   :root {
-    color-scheme: light dark;
-    --bg: #f7f7f7;
-    --text: #222;
-    --accent: #e74c3c;
-    --shadow: rgba(0,0,0,0.1);
+    /* color-scheme: light dark; */
+    /* --bg: #f7f7f7; */
+    /* --text: #222; */
+    /* --accent: #e74c3c; */
+    /* --shadow: rgba(0,0,0,0.1); */
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #111;
-      --text: #eee;
-      --shadow: rgba(255,255,255,0.05);
+      --text: #7d8c8e;
     }
   }
   body {
     margin: 0;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    background: var(--bg);
-    color: var(--text);
+    color: #999;
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 100vh;
     padding: 0 15px;
   }
   .box {
     text-align: center;
     padding: 3rem 2rem;
     border-radius: 1rem;
-    box-shadow: 0 0 20px var(--shadow);
     animation: fadeIn 0.6s ease;
   }
   h1 {
@@ -3878,6 +3872,10 @@ cat <<'EOF' >  /usr/local/nginx/html/404.html
   p {
     font-size: 1.1rem;
     color: var(--text);
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
   }
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
